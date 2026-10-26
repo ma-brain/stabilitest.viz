@@ -22,11 +22,13 @@ stv_store <- function(profile = NULL) {
     data_label = NULL,
     data_id = NULL,
     labels = NULL,
+    source = NULL,
     adam = NULL,
     filters = NULL,
     checks = NULL,
     suggestion = NULL,
     spec = list(),
+    result = NULL,
     history = list()
   )
 }
@@ -60,10 +62,12 @@ stv_store_set_mode <- function(store, mode = c("guided", "expert")) {
 #' @param label Display name.
 #' @param id Identifier of the source, for example an example id.
 #' @param labels Named character vector of variable labels, or `NULL`.
+#' @param source A list describing where the data came from, used for the
+#'   reproducible code: `id` for an example, or `file`, `format` and `sheet`.
 #'
 #' @return `store`, invisibly.
 #' @noRd
-stv_store_set_data <- function(store, data, label = NULL, id = NULL, labels = NULL) {
+stv_store_set_data <- function(store, data, label = NULL, id = NULL, labels = NULL, source = NULL) {
   if (!is.null(data) && !is.data.frame(data)) {
     rlang::abort("`data` must be a data frame or NULL.")
   }
@@ -71,6 +75,8 @@ stv_store_set_data <- function(store, data, label = NULL, id = NULL, labels = NU
   store$data_label <- label
   store$data_id <- id
   store$labels <- labels
+  store$source <- source
+  store$result <- NULL
   store$raw_data <- data
 
   if (is.null(data)) {
@@ -107,6 +113,7 @@ stv_store_set_filters <- function(store, filters) {
   store$checks <- stv_check_subjects(data, adam)
   store$suggestion <- stv_suggest_mapping(data, adam)
   store$spec <- list()
+  store$result <- NULL
   invisible(store)
 }
 

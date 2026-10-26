@@ -91,7 +91,10 @@ mod_data_server <- function(id, store) {
       }
       examples <- stv_examples()
       label <- examples$label[examples$id == input$example]
-      stv_store_set_data(store, stv_load_example(input$example), label, input$example)
+      stv_store_set_data(
+        store, stv_load_example(input$example), label, input$example,
+        source = list(id = input$example)
+      )
     })
 
     # Upload -------------------------------------------------------------------
@@ -141,7 +144,10 @@ mod_data_server <- function(id, store) {
           read_error(conditionMessage(result))
           return()
         }
-        stv_store_set_data(store, result$data, file$name[[1]], NULL, result$labels)
+        stv_store_set_data(
+          store, result$data, file$name[[1]], NULL, result$labels,
+          source = list(file = file$name[[1]], format = result$format, sheet = if (identical(result$format, "excel")) chosen_sheet())
+        )
       })
     }
 

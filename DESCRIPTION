@@ -21,8 +21,10 @@ Imports:
     config,
     golem,
     haven,
+    mirai,
     readxl,
     rlang,
+    S7,
     sass,
     shiny (>= 1.9),
     shinyvalidate,
@@ -30,6 +32,9 @@ Imports:
     tibble,
     utils
 Suggests:
+    later,
+    promises,
+    survival,
     testthat (>= 3.0.0)
 Remotes:
     ma-brain/stabilitest
