@@ -1,0 +1,418 @@
+// stabilitest.viz overrides. Sass variables ($stv-*) are declared in stv_theme().
+
+:root,
+[data-bs-theme="light"] {
+  --stv-surface: #{$stv-surface-light};
+  --stv-muted: #{$stv-muted-light};
+  --stv-accent: #{$stv-accent-light};
+  --stv-brand: #{$stv-primary-light};
+  --stv-mist: #{$stv-mist};
+}
+
+[data-bs-theme="dark"] {
+  --stv-surface: #{$stv-surface-dark};
+  --stv-muted: #{$stv-muted-dark};
+  --stv-accent: #{$stv-accent-dark};
+  --stv-brand: #{$stv-primary-dark};
+  --stv-mist: #22393f;
+
+  // Bootstrap compiles $primary into components, so lift it for dark mode.
+  --bs-primary: #{$stv-primary-dark};
+  --bs-primary-rgb: 108, 184, 179;
+  --bs-focus-ring-color: rgba(108, 184, 179, 0.4);
+
+  .btn-primary {
+    --bs-btn-bg: #{$stv-primary-dark};
+    --bs-btn-border-color: #{$stv-primary-dark};
+    --bs-btn-color: #{$stv-ink};
+    --bs-btn-hover-bg: #8ac8c4;
+    --bs-btn-hover-border-color: #8ac8c4;
+    --bs-btn-hover-color: #{$stv-ink};
+    --bs-btn-active-bg: #a3d5d1;
+    --bs-btn-active-border-color: #a3d5d1;
+    --bs-btn-active-color: #{$stv-ink};
+    --bs-btn-disabled-bg: #{$stv-primary-dark};
+    --bs-btn-disabled-border-color: #{$stv-primary-dark};
+    --bs-btn-disabled-color: #{$stv-ink};
+  }
+
+  .btn-outline-primary {
+    --bs-btn-color: #{$stv-primary-dark};
+    --bs-btn-border-color: #{$stv-primary-dark};
+    --bs-btn-hover-bg: #{$stv-primary-dark};
+    --bs-btn-hover-border-color: #{$stv-primary-dark};
+    --bs-btn-hover-color: #{$stv-ink};
+    --bs-btn-active-bg: #{$stv-primary-dark};
+    --bs-btn-active-border-color: #{$stv-primary-dark};
+    --bs-btn-active-color: #{$stv-ink};
+  }
+
+  .form-check-input:checked,
+  .form-switch .form-check-input:checked {
+    background-color: #{$stv-primary-dark};
+    border-color: #{$stv-primary-dark};
+  }
+
+  .badge.text-bg-primary {
+    background-color: #{$stv-primary-dark} !important;
+    color: #{$stv-ink} !important;
+  }
+}
+
+// Surfaces ------------------------------------------------------------------
+
+.card,
+.bslib-value-box,
+.accordion {
+  --bs-card-bg: var(--stv-surface);
+  --bs-accordion-bg: var(--stv-surface);
+}
+
+.bslib-value-box {
+  background-color: var(--stv-surface) !important;
+  color: var(--bs-body-color) !important;
+  border: var(--bs-card-border-width, 1px) solid var(--bs-border-color);
+}
+
+.navbar {
+  --bs-navbar-brand-padding-y: 0.25rem;
+  background-color: var(--stv-surface) !important;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.bslib-sidebar-layout > .sidebar {
+  background-color: var(--stv-surface);
+}
+
+// Numbers -------------------------------------------------------------------
+
+.stv-num,
+.bslib-value-box .value-box-value,
+.bslib-value-box .value-box-title,
+.table td.num,
+.table th.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.table td.num,
+.table th.num {
+  text-align: right;
+}
+
+code,
+pre,
+.stv-mono {
+  font-variant-ligatures: none;
+}
+
+// Focus rings ---------------------------------------------------------------
+
+:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.accordion-button:focus,
+.nav-link:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+// Brand lockup swaps with the theme -----------------------------------------
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+}
+
+.stv-brand {
+  display: flex;
+  align-items: center;
+}
+
+.stv-brand img {
+  height: 1.75rem;
+  width: auto;
+  display: block;
+}
+
+.stv-logo-dark {
+  display: none !important;
+}
+
+[data-bs-theme="dark"] {
+  .stv-logo-light {
+    display: none !important;
+  }
+  .stv-logo-dark {
+    display: block !important;
+  }
+}
+
+// Navbar controls -----------------------------------------------------------
+
+.stv-nav-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--stv-muted);
+  font-size: 0.875rem;
+}
+
+.stv-nav-control .shiny-input-container {
+  width: auto;
+  margin: 0;
+}
+
+.stv-nav-control .form-check {
+  margin: 0;
+  min-height: 0;
+}
+
+// Stepper -------------------------------------------------------------------
+
+.stv-stepper .accordion-item {
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+
+.stv-stepper .accordion-button {
+  gap: 0.625rem;
+  font-weight: 500;
+  padding: 0.75rem 0.5rem;
+  box-shadow: none;
+  background: transparent;
+}
+
+.stv-stepper .accordion-button:not(.collapsed) {
+  color: var(--bs-body-color);
+  background: transparent;
+}
+
+.stv-stepper .accordion-body {
+  padding: 0.25rem 0.5rem 1rem;
+}
+
+.stv-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bs-tertiary-bg);
+  color: var(--stv-muted);
+  border: 1px solid var(--bs-border-color);
+}
+
+.stv-step-active .stv-step-num {
+  background: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: #fff;
+}
+
+[data-bs-theme="dark"] .stv-step-active .stv-step-num {
+  color: #{$stv-ink};
+}
+
+.stv-step-status {
+  margin-left: auto;
+  color: var(--bs-primary);
+}
+
+// Empty states --------------------------------------------------------------
+
+.stv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  color: var(--stv-muted);
+}
+
+.stv-empty .stv-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--stv-mist);
+  color: var(--bs-primary);
+  font-size: 1.375rem;
+}
+
+.stv-empty h3,
+.stv-empty .stv-empty-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+  color: var(--bs-body-color);
+}
+
+.stv-empty p {
+  max-width: 34rem;
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.stv-empty-compact {
+  padding: 0.75rem 0;
+  align-items: flex-start;
+  text-align: left;
+  flex-direction: row;
+  gap: 0.75rem;
+}
+
+.stv-empty-compact .stv-empty-icon {
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  flex: none;
+}
+
+.stv-empty-compact .stv-empty-title {
+  margin-top: 0;
+  font-size: 0.9375rem;
+}
+
+.stv-empty-compact p {
+  font-size: 0.875rem;
+}
+
+// Ghost verdict strip (placeholder metrics before any run) --------------------
+
+.stv-ghost {
+  border: 1px dashed var(--bs-border-color);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 0.875rem 1rem;
+  color: var(--stv-muted);
+  background: transparent;
+}
+
+.stv-ghost .stv-ghost-label {
+  font-size: 0.8125rem;
+}
+
+.stv-ghost .stv-ghost-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+// Data preview ---------------------------------------------------------------
+
+.stv-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.stv-stat .stv-stat-value {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stv-stat .stv-stat-label {
+  font-size: 0.8125rem;
+  color: var(--stv-muted);
+}
+
+.stv-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+
+.stv-table-wrap .table {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  --bs-table-bg: transparent;
+}
+
+.stv-table-wrap .table th {
+  font-weight: 500;
+  color: var(--stv-muted);
+  white-space: nowrap;
+}
+
+.stv-type {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--stv-mist);
+  color: var(--bs-body-color);
+  border: 1px solid var(--bs-border-color);
+  white-space: nowrap;
+}
+
+.stv-status {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--bs-border-color);
+  white-space: nowrap;
+  color: var(--stv-muted);
+}
+
+.stv-status-validated {
+  color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.stv-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--stv-muted);
+  margin: 0 0 0.5rem;
+}
+
+// Learn -------------------------------------------------------------------
+
+.stv-learn .card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.stv-learn .stv-learn-icon {
+  color: var(--stv-accent);
+}
+
+.stv-question {
+  font-weight: 500;
+}
+
+.stv-callout {
+  border-left: 3px solid var(--stv-accent);
+  padding: 0.5rem 0 0.5rem 1rem;
+  color: var(--bs-body-color);
+}
+
+.stv-page {
+  max-width: 72rem;
+  margin-inline: auto;
+}
