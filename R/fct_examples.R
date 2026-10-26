@@ -36,13 +36,13 @@ stv_examples <- function() {
 
   synthetic <- tibble::tibble(
     id = c(
-      "syn_two_sample", "syn_paired", "syn_binary", "syn_ancova", "syn_counts",
+      "syn_two_sample", "syn_paired", "syn_binary", "syn_binary_eligible", "syn_ancova", "syn_counts",
       "syn_survival", "syn_adsl", "syn_adeff", "syn_adtte"
     ),
     group = "Synthetic files",
     label = c(
       "Two groups, continuous outcome", "Paired measurements",
-      "Two groups, binary response", "Three-arm ANCOVA with missing values",
+      "Two groups, binary response", "Binary response, significant (validated Fisher profile)", "Three-arm ANCOVA with missing values",
       "Event counts with exposure", "Time to event",
       "ADaM ADSL", "ADaM BDS (pain over visits)", "ADaM ADTTE (survival)"
     ),
@@ -50,6 +50,10 @@ stv_examples <- function() {
       "120 simulated subjects in two arms with a continuous outcome and two planted outliers.",
       "40 simulated subjects with before and after blood pressure.",
       "140 simulated subjects in two arms with a 0/1 responder outcome.",
+      paste(
+        "200 simulated subjects, 100 per arm, with a significant 0/1 response difference.",
+        "Falls inside the validated Fisher profile, so stabilitest can return a label."
+      ),
       "90 simulated subjects in three arms with age, baseline and change; 4 outcomes are missing.",
       "100 simulated subjects with an event count and years of exposure.",
       "120 simulated subjects with follow-up time and an event indicator.",
@@ -58,7 +62,7 @@ stv_examples <- function() {
       "Simulated overall survival with AVAL and CNSR (1 = censored)."
     ),
     file = c(
-      "two_sample_continuous.csv", "paired_bp.csv", "binary_response.csv",
+      "two_sample_continuous.csv", "paired_bp.csv", "binary_response.csv", "binary_response_eligible.csv",
       "ancova_trial.csv", "count_events.csv", "survival_cox.csv",
       "adsl.csv", "adeff.csv", "adtte.csv"
     )

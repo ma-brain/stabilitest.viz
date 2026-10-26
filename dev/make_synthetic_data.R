@@ -125,4 +125,16 @@ adtte$CNSR <- as.integer(latent > censor) # 1 = censored (ADaM convention)
 adtte$ITTFL <- adsl$ITTFL
 write(adtte, "adtte.csv")
 
+# 10. Binary response that is significant and inside the validated Fisher
+# profile (per-arm n 25-200, control rate 0.08-0.55), so the app can show a
+# validated label. Uses its own seed so the files above do not change.
+set.seed(20260807)
+e <- 100
+eligible <- data.frame(
+  subject_id = sprintf("E%03d", seq_len(2 * e)),
+  arm = rep(c("Active", "Control"), each = e),
+  responder = c(rbinom(e, 1, 0.45), rbinom(e, 1, 0.20))
+)
+write(eligible, "binary_response_eligible.csv")
+
 message("Wrote ", length(list.files(out)), " files to ", out)

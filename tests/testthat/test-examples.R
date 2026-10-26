@@ -37,7 +37,7 @@ test_that("registry and versions are available", {
 test_that("synthetic examples load", {
   ex <- stv_examples()
   syn <- ex$id[ex$group == "Synthetic files"]
-  expect_length(syn, 9L)
+  expect_length(syn, 10L)
   for (id in syn) {
     d <- stv_load_example(id)
     expect_s3_class(d, "tbl_df")
