@@ -1,0 +1,200 @@
+# stabilitest.viz — Development Plan (draft v0.1)
+
+Companion R Shiny app for the `stabilitest` package (v0.6.5).
+Separate package, built with **golem + bslib (Bootstrap 5)**. The app never re-implements
+statistics: every number comes from `stabilitest` exported functions.
+
+Status: **v0.6 — M0 skeleton built (branch `m0-skeleton`).**
+
+---
+
+## 1. Goals
+
+1. Let a user go from *data → robustness verdict → report* in under 2 minutes, without writing code.
+2. Make the three stress tests (jackknife, worst-case removal, bootstrap same-decision rate) *visible and explorable*: which observations drive the result, and why.
+3. Respect the package's **fail-closed calibration**: show a categorical label only when `stabilitest` returns one. Never infer a label from a score.
+4. Produce reproducible output: every analysis exports the exact R code and a report.
+5. Modern, calm UI: light/dark, responsive, keyboard-accessible, no "default Shiny" look.
+
+Non-goals (v1): multi-user accounts, persistence database, editing data in-app, new statistical methods.
+
+---
+
+## 2. Coverage of the stabilitest API
+
+| App "analysis family" | stabilitest call | Inputs the user maps |
+|---|---|---|
+| Two-sample location | `robustness_analysis(test_type = t.test / paired.t.test / wilcoxon / brunner_munzel)` | outcome, group (+ pair ID if paired) |
+| Two-group proportions | `robustness_analysis(test_type = fisher / chisq / prop)` | binary outcome, group, `correct` |
+| Equivalence / NI | `robustness_tost(endpoint = mean / prop / or)` | outcome, group, type, margin or δL/δU, `higher_is_better`, paired |
+| Linear model / ANCOVA | `robustness_lm()` | formula builder (response, treatment, covariates), term |
+| GLM | `robustness_glm()` | formula, family (binomial / poisson), offset, term, obs weights |
+| Cox PH | `robustness_surv()` | time, event, covariates, term |
+
+Common settings: `alpha`, `n_boot`, `max_removal_pct`, `influential_threshold`, `weights`, `seed`, `interpret`.
+
+**Adapter layer.** `robustness_analysis` (nested `jackknife$results`, `extreme`) and
+`robustness_model` (flat tibbles, `removed_rows`) differ. The app normalises both into one
+internal result object (S7 class, e.g. `stv_result`) so every results module is written once.
+*Recommendation:* later move a `tidy()`/`as_tibble()` accessor into `stabilitest` itself.
+
+---
+
+## 3. User experience
+
+### 3.1 Layout
+`bslib::page_navbar` with 4 top-level pages:
+
+1. **Analyse** — the main workflow (sidebar + main area).
+2. **Compare** — side-by-side comparison of analyses run in this session (e.g. Welch vs Wilcoxon vs Brunner–Munzel on the same data).
+3. **Learn** — short explanation of each metric with illustrated examples (links to vignettes / R Journal article).
+4. **About** — package versions, calibration registry status, citation.
+
+Navbar right: **Guided / Expert mode switch**, dark-mode toggle (`input_dark_mode`), session history, help.
+
+### 3.1a Two modes (three audiences)
+- **Expert** (statisticians): all settings, technical wording, code tab open by default.
+- **Guided** (clinical reviewers): plain-language step text, advanced settings hidden, a "What does this mean?" panel next to every result.
+- **Public companion**: Guided mode + bundled example data preloaded + Learn page linking to the vignettes / R Journal article. Selected with a config option (`golem-config.yml: profile: public`), which also disables uploads.
+
+### 3.2 Analyse workflow (stepper in a collapsible sidebar)
+
+1. **Data** — upload CSV / XLSX / SAS (`.xpt`, `.sas7bdat` via `haven`; labels shown as column tooltips) or pick a bundled example
+   (`pain_trial`, `pain_ancova_trial`, `onc_response_trial`). Instant preview, column-type badges, missing-value summary, optional row filter.
+   **ADaM-aware**: detects ADSL / BDS (ADEFF, ADLB…) / ADTTE structure by column names; offers PARAMCD / AVISIT / population-flag (SAFFL, ITTFL, EFFFL) filters; presets mapping (AVAL/CHG → outcome, TRT01P/TRTP → group, BASE → covariate, AVAL+CNSR → time/event for Cox, with CNSR inverted to event). One-row-per-subject check before running.
+2. **Question** — pick analysis family via cards with a one-line plain-language description ("Is the difference in means fragile?"). Smart defaults from column types (binary outcome → proportions).
+3. **Map variables** — drop-downs filtered by type; formula builder for models with live formula preview (`change ~ arm + baseline`); term picker populated from the fitted model.
+4. **Settings** — basic (alpha, n_boot) visible; advanced (weights, max removal %, threshold, seed) in an accordion. Weight sliders sum-to-1 enforced. Warning when settings fall outside a validated calibration profile.
+5. **Run** — `bslib::input_task_button` + `ExtendedTask` (async via `mirai`) so the UI never freezes; progress + cancel; runtime estimate from n × n_boot.
+
+### 3.3 Results dashboard
+- **Verdict strip** (value boxes): original p and decision, composite score (0–100 gauge), removal fragility index, bootstrap same-decision rate, jackknife stability.
+- **Calibration banner**: either the validated label (e.g. Fisher "Fragile / Not fragile", with profile ID) or a neutral fail-closed message: "No validated cutoff for this method — score is numeric only." Never coloured red/green when there is no label.
+- **Tabs**:
+  - *Removal path* — p-value vs k removed (worst-case and extreme-value), alpha line, flip point annotated.
+  - *Influence* — jackknife Δp per observation; click a point → highlights the row in the data table.
+  - *Bootstrap* — p-value distribution with alpha and observed p; same-decision rate.
+  - *Removed observations* — table of the greedy removal set, linked to the raw data.
+  - *Interpretation* — the package's `interpret = TRUE` text.
+  - *Code* — copyable, runnable R code reproducing the result exactly (incl. seed).
+- Plot hover/click via interactive graphics; static ggplot versions used for the report.
+
+### 3.4 Export
+- Report: HTML, DOCX and PDF (Typst engine, no LaTeX needed in Docker) via one Quarto template (parameterised), including session info and package versions.
+- Download: plots (PNG/SVG), result tables (CSV/XLSX), result object (RDS), R script.
+
+### 3.5 UX principles
+- Progressive disclosure (basic → advanced).
+- Every metric has an info popover (`bslib::popover`) with a one-sentence definition.
+- Validation messages inline next to the input (`shinyvalidate`), not modals.
+- Empty states and skeleton loaders; no blank panels.
+- Keyboard and screen-reader friendly; WCAG AA contrast in both themes.
+
+---
+
+## 4. Visual design
+Brand spec: [`docs/brand/BRAND.md`](brand/BRAND.md) ("Clinical calm" palette, light/dark tokens, typography, logo concepts).
+
+- `bslib::bs_theme(version = 5)` with a custom palette, Inter + JetBrains Mono, rounded cards, generous whitespace.
+- Single SCSS file in `inst/app/www/` for overrides; design tokens as Sass variables.
+- `thematic` so ggplot output follows the active theme (light/dark).
+- Colour semantics: neutral by default; red/green reserved for validated labels only.
+
+---
+
+## 5. Architecture (golem)
+
+```
+stabilitest.viz/
+├── DESCRIPTION            # Imports: stabilitest, golem, bslib, shiny, ...
+├── R/
+│   ├── app_ui.R  app_server.R  app_config.R  run_app.R
+│   ├── mod_data_*.R        # upload, example data, preview
+│   ├── mod_question.R      # analysis family selector
+│   ├── mod_mapping_*.R     # per-family variable mapping
+│   ├── mod_settings.R
+│   ├── mod_run.R           # ExtendedTask / mirai
+│   ├── mod_results_*.R     # verdict, removal, influence, bootstrap, tables, code
+│   ├── mod_compare.R  mod_learn.R  mod_about.R
+│   ├── fct_dispatch.R      # builds & calls the stabilitest function
+│   ├── fct_adapter.R       # normalises results → stv_result (S7)
+│   ├── fct_codegen.R       # reproducible R code
+│   ├── fct_plots.R         # ggplot builders (shared by app and report)
+│   └── utils_*.R
+├── inst/
+│   ├── app/www/            # scss, favicon, logo
+│   ├── report/report.qmd   # Quarto template
+│   └── golem-config.yml    # limits: max upload size, max n_boot, workers
+├── tests/testthat/         # unit + testServer() + shinytest2
+├── docs/                   # this plan, decisions log, UX notes
+└── dev/                    # golem dev scripts
+```
+
+Key rules:
+- `fct_*` are pure functions, tested without Shiny.
+- Modules communicate through one session-level `reactiveValues`/R6 store (data, spec, results, history).
+- All `stabilitest` calls go through `fct_dispatch.R` — the single point to update when the package API changes.
+
+---
+
+## 6. Proposed dependencies
+`stabilitest`, `golem`, `shiny` (≥ 1.8.1 for ExtendedTask), `bslib`, `bsicons`, `mirai`, `thematic`,
+`ggplot2`, `plotly` (in-app interactivity; ggplot builders in `fct_plots.R` → `ggplotly()` / native traces where needed, static ggplot for reports), `reactable`, `shinyvalidate`,
+`readxl`, `haven`, `S7`, `quarto`, `cli`; dev: `testthat`, `shinytest2`, `lintr`, `styler`.
+
+---
+
+## 7. Quality
+- Unit tests for dispatch, adapter, codegen (round-trip: generated code reproduces app result bit-for-bit given seed).
+- `testServer()` for each module; `shinytest2` snapshot for the happy path per analysis family.
+- GitHub Actions: R CMD check + shinytest2.
+- `lintr` + `styler` (tidyverse style).
+
+---
+
+## 8. Milestones (all six families in v1)
+
+| # | Milestone | Content |
+|---|---|---|
+| M0 | Skeleton | golem package, theme, navbar, modes switch, config profiles, CI, examples load |
+| M1 | Data layer | CSV/XLSX upload, preview, ADaM detection + filters + mapping presets |
+| M2 | Engine | dispatch for all six families, S7 adapter, async run (mirai), codegen + round-trip tests |
+| M3 | Results | verdict strip, calibration banner, removal / influence / bootstrap / removed-obs / interpretation / code tabs, linked brushing |
+| M4 | Compare + reports | session history, compare view, Quarto export |
+| M5 | Guided mode, Learn, polish | plain-language layer, public profile, accessibility pass |
+| M6 | Release | Dockerfile (rocker/r-ver base), `run_app()` docs, v1.0 |
+
+## 9. Risks
+- **Runtime**: large `n_boot` on models (Cox) can take minutes → async + caps in config + estimated runtime.
+- **API drift**: `stabilitest` is experimental → pin minimum version, single dispatch file, adapter tests.
+- **Misinterpretation**: users may read a score as a verdict → fail-closed banner, neutral colours, wording reviewed against the package README.
+
+---
+
+## 10. Open questions (to decide)
+1. ~~Audience~~ → decided.
+2. ~~v1 scope~~ → decided.
+3. ~~Data sources~~ → decided.
+4. ~~Deployment~~ → decided.
+5. ~~Interactive plots~~ → decided.
+6. ~~Report formats~~ → decided.
+7. ~~stabilitest source~~ → decided.
+8. ~~Branding~~ → own brand, "Clinical calm". Logo B · balance selected.
+
+---
+
+## Decisions log
+- 2026-10-26 — Audience: statisticians, clinical reviewers and public companion → Expert/Guided modes + `public` config profile.
+- 2026-10-26 — v1 scope: all six analysis families.
+- 2026-10-26 — Data input: CSV / XLSX, ADaM-aware mapping. SAS `.xpt` / `.sas7bdat` via `haven`.
+- 2026-10-26 — Deployment: local `run_app()` and Docker / self-hosted.
+- 2026-10-26 — Interactive plots: `plotly`; static ggplot for reports with a shared theme.
+- 2026-10-26 — Reports: HTML, DOCX, PDF from one Quarto template.
+- 2026-10-26 — Dependency: `Remotes: ma-brain/stabilitest`, `stabilitest (>= 0.6.5)`.
+- 2026-10-26 — Branding: own logo + palette, "Clinical calm" direction, shared hex family with `stabilitest`.
+- 2026-10-26 — Logo: concept B (balance). Typography: Inter + JetBrains Mono.
+- 2026-10-26 — M0: default UI mode is Guided; the public profile forces Guided and hides the switch. Profile is chosen with `run_app(profile=)` (falls back to a valid `R_CONFIG_ACTIVE`, else `default`); config keys `app_profile`, `max_upload_mb`, `max_n_boot`, `workers`.
+- 2026-10-26 — M0: example id `pain_trial` is `pain_treatment`/`pain_placebo` stacked into a long tibble (`subject_id`, `arm`, `change`; arm levels Treatment, Placebo). The PLAN's "pain_trial" is the package's documentation name, not a dataset.
+- 2026-10-26 — M0: tables are plain HTML via `stv_html_table()`; `reactable` is deferred to M3. `utils` is declared in Imports for `read.csv`.
+- 2026-10-26 — M0: the registry "validated" badge uses the primary colour, not green, since green/red are reserved for result labels.
+- 2026-10-26 — M0: Sass declarations are set through `bs_theme()` variables (`body-bg`, `body-bg-dark`, ...); dark-mode primary buttons and switches are overridden in `stv.scss` because Bootstrap compiles `$primary` into components.
