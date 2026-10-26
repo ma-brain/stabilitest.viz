@@ -139,6 +139,12 @@ stv_theme <- function(local_fonts = TRUE) {
     "stv-accent-dark" = dark$accent,
     "stv-primary-light" = light$primary,
     "stv-primary-dark" = dark$primary,
+    "stv-not-fragile-light" = light$not_fragile,
+    "stv-not-fragile-dark" = dark$not_fragile,
+    "stv-fragile-light" = light$fragile,
+    "stv-fragile-dark" = dark$fragile,
+    "stv-numeric-only-light" = light$numeric_only,
+    "stv-numeric-only-dark" = dark$numeric_only,
     "stv-mist" = light$core[["mist"]],
     "stv-ink" = light$core[["ink"]]
   )

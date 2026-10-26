@@ -28,8 +28,8 @@ test_that("the public profile forces Guided mode", {
 })
 
 test_that("the public UI has no mode switch", {
-  expect_false(grepl("expert_mode", as.character(app_ui(NULL, "public"))))
-  expect_true(grepl("expert_mode", as.character(app_ui(NULL, "default"))))
+  expect_false(grepl("id=\"expert_mode\"", as.character(app_ui(NULL, "public"))))
+  expect_true(grepl("id=\"expert_mode\"", as.character(app_ui(NULL, "default"))))
 })
 
 test_that("picking an example fills the store", {

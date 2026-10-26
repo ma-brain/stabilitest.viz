@@ -1,7 +1,7 @@
 #' Analyse page UI
 #'
 #' Sidebar stepper (Data, Question, Map, Settings, Run) next to the preview and
-#' results area. Only the Data step works in M0.
+#' results area.
 #'
 #' @param id Module id.
 #' @param public Public profile: no upload.
@@ -10,10 +10,6 @@
 #' @noRd
 mod_analyse_ui <- function(id, public = FALSE) {
   ns <- shiny::NS(id)
-
-  locked <- function(title, text, icon) {
-    stv_empty_state(title, text, icon = icon, compact = TRUE)
-  }
 
   bslib::layout_sidebar(
     fillable = FALSE,
@@ -31,7 +27,6 @@ mod_analyse_ui <- function(id, public = FALSE) {
           value = "data",
           title = stv_step_title(
             1, "Data",
-            active = TRUE,
             status = shiny::uiOutput(ns("data_status"), inline = TRUE, class = "stv-step-status")
           ),
           mod_data_ui(ns("data"), public)
@@ -39,62 +34,62 @@ mod_analyse_ui <- function(id, public = FALSE) {
         bslib::accordion_panel(
           value = "question",
           title = stv_step_title(2, "Question"),
-          locked(
-            "Choose what to test",
-            "Pick the kind of comparison once your data is loaded: means, proportions, equivalence or a model.",
-            "question-circle"
-          )
+          mod_question_ui(ns("question"))
         ),
         bslib::accordion_panel(
           value = "map",
           title = stv_step_title(3, "Map"),
-          locked(
-            "Map your variables",
-            "Tell the app which column is the outcome and which is the group.",
-            "diagram-3"
-          )
+          mod_map_ui(ns("map"))
         ),
         bslib::accordion_panel(
           value = "settings",
           title = stv_step_title(4, "Settings"),
-          locked(
-            "Review settings",
-            "Significance level and number of bootstrap resamples will appear here.",
-            "sliders"
-          )
+          mod_settings_ui(ns("settings"))
         ),
         bslib::accordion_panel(
           value = "run",
           title = stv_step_title(5, "Run"),
-          locked(
-            "Ready when you are",
-            "The run button unlocks after the previous steps are complete.",
-            "play-circle"
-          ),
-          shiny::tags$button(
-            type = "button",
-            class = "btn btn-primary w-100 mt-2",
-            disabled = NA,
-            "Run analysis"
-          )
+          mod_run_ui(ns("run"))
         )
       )
     ),
     mod_data_preview_ui(ns("data")),
-    mod_results_placeholder_ui()
+    mod_results_ui(ns("results"))
   )
 }
 
 #' Analyse page server
 #'
+#' Combines the Question, Map and Settings steps into the analysis spec in the
+#' store.
+#'
 #' @param id Module id.
 #' @param store Session store from `stv_store()`.
+#' @param runner Passed to `mod_run_server()`.
 #'
 #' @return `NULL`, invisibly.
 #' @noRd
-mod_analyse_server <- function(id, store) {
+mod_analyse_server <- function(id, store, runner = stv_run_async) {
   shiny::moduleServer(id, function(input, output, session) {
     mod_data_server("data", store)
+    question <- mod_question_server("question", store)
+    mapping <- mod_map_server("map", store, question)
+    settings <- mod_settings_server("settings", store, question)
+    mod_run_server("run", store, runner)
+    mod_results_server("results", store)
+
+    shiny::observe({
+      data <- store$data
+      fam <- question()
+      if (is.null(data) || is.null(fam$family)) {
+        store$spec <- list()
+        return()
+      }
+      spec <- c(list(family = fam$family, test = fam$test), mapping(), list(settings = settings()))
+      spec <- stv_spec_finalize(spec, data)
+      spec$source <- c(store$source, list(filters = store$filters, adam = store$adam))
+      store$spec <- spec
+    })
 
     output$data_status <- shiny::renderUI({
       if (!is.null(store$data)) {

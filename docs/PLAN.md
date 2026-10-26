@@ -4,7 +4,7 @@ Companion R Shiny app for the `stabilitest` package (v0.6.5).
 Separate package, built with **golem + bslib (Bootstrap 5)**. The app never re-implements
 statistics: every number comes from `stabilitest` exported functions.
 
-Status: **v0.7 — M0 and M1 built (branches `m0-skeleton`, `m1-data-layer`).**
+Status: **v0.8 — M0, M1 and M2 built (branches `m0-skeleton`, `m1-data-layer`, `m2-engine`).**
 
 ---
 
@@ -207,3 +207,10 @@ M0 ships only `bslib`, `bsicons`, `config`, `golem`, `rlang`, `sass`, `shiny`, `
 - 2026-10-26 — M1: mapping presets are suggestions shown in the Data step and stored in `store$suggestion`; the Map step that edits them arrives in M2. ADaM: outcome CHG (AVAL as alternative), group TRT01P/TRTP, covariate BASE, ADTTE time AVAL and event `1 - CNSR`. Other data: name and type heuristics.
 - 2026-10-26 — M1: the one-row-per-subject check is informational in M1 and should block Run in M2. Data-quality badges use neutral colours.
 - 2026-10-26 — M1: the synthetic CSV files are listed as bundled examples; row filter and SAS label tooltips appear in Expert mode and wherever labels exist.
+- 2026-10-26 — M2: `mirai` approved (persistent daemons, real cancellation) and S7 for `stv_result`; `survival` is a Suggests, Cox needs it. `later` and `promises` are Suggests for tests only. `workers` in the profile sets the daemon count, started in the `onStart` hook.
+- 2026-10-26 — M2: a spec becomes a plan of R language objects (`fct_dispatch.R`). The same plan is evaluated to run the analysis and printed as the reproducible code, so code and app cannot drift apart; tests check the printed code reproduces the app result with `identical()`.
+- 2026-10-26 — M2: the app drops incomplete rows itself (complete cases on the columns used) and keeps a row map, so results link to rows of the filtered data shown in the Data step. Text predictors become factors in the prepared data (stabilitest needs this for glm and Cox).
+- 2026-10-26 — M2: runs pin `RNGkind("Mersenne-Twister", "Inversion", "Rejection")` so a seed gives the same numbers in a daemon and in plain R; the line is part of the generated code.
+- 2026-10-26 — M2: `stv_result` (S7) holds a label only when stabilitest returned one and its calibration is applicable; a validator enforces it. The banner is neutral ("No categorical label") otherwise. Green and red appear only with a returned label.
+- 2026-10-26 — M2: the "validated Fisher settings" button applies alpha 0.05, 1000 resamples, weights 0/0.5/0.5 and 30% removal, the profile documented in the stabilitest README; a test compares the weights with stabilitest's frozen design. Eligibility is stabilitest's call.
+- 2026-10-26 — M2: the one-row-per-subject check blocks Run (except paired data in long layout). Runs are limited by `max_n_boot` of the profile. Results are minimal in M2 (banner, five numbers, code); the tabbed explorer is M3.

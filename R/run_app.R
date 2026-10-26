@@ -50,8 +50,8 @@ run_app <- function(
 
 #' Start-up hook of the app
 #'
-#' Applies the upload size limit of the profile to Shiny, then calls the
-#' user's own `onStart`.
+#' Applies the upload size limit of the profile to Shiny, starts the background
+#' workers for analyses, then calls the user's own `onStart`.
 #'
 #' @param profile One of `stv_profiles()`.
 #' @param onStart `NULL` or a function.
@@ -65,6 +65,8 @@ stv_on_start <- function(profile, onStart = NULL) {
     mb <- max(stv_config("max_upload_mb", profile), 1)
     old <- options(shiny.maxRequestSize = mb * 1024^2)
     shiny::onStop(function() options(old))
+    stv_daemons_start(stv_config("workers", profile))
+    shiny::onStop(stv_daemons_stop)
     if (!is.null(onStart)) onStart()
   }
 }
