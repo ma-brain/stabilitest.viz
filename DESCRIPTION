@@ -1,0 +1,34 @@
+Package: stabilitest.viz
+Title: Interactive Companion App for the 'stabilitest' Package
+Version: 0.0.0.9000
+Authors@R:
+    person("Marius", "Ardelean", email = "marally@gmail.com",
+           role = c("aut", "cre"))
+Description: A 'shiny' application that explores the robustness and fragility
+    of statistical test conclusions computed by the 'stabilitest' package.
+    The app never re-implements statistics: every number comes from
+    'stabilitest' functions.
+License: MIT + file LICENSE
+URL: https://github.com/ma-brain/stabilitest.viz
+BugReports: https://github.com/ma-brain/stabilitest.viz/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1)
+Imports:
+    bslib (>= 0.8),
+    bsicons,
+    config,
+    golem,
+    rlang,
+    sass,
+    shiny (>= 1.9),
+    stabilitest (>= 0.6.5),
+    tibble,
+    utils
+Suggests:
+    testthat (>= 3.0.0)
+Remotes:
+    ma-brain/stabilitest
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.1

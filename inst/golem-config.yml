@@ -1,0 +1,26 @@
+# Profiles are selected with run_app(profile = ) or R_CONFIG_ACTIVE.
+#   default:    local development / local use, uploads and larger runs allowed
+#   production: self-hosted deployment with tighter limits
+#   public:     public companion; Guided mode only, uploads disabled
+default:
+  golem_name: stabilitest.viz
+  golem_version: 0.0.0.9000
+  app_prod: no
+  app_profile: default
+  max_upload_mb: 50
+  max_n_boot: 5000
+  workers: 2
+
+production:
+  app_prod: yes
+  app_profile: production
+  max_upload_mb: 25
+  max_n_boot: 2000
+  workers: 4
+
+public:
+  app_prod: yes
+  app_profile: public
+  max_upload_mb: 0
+  max_n_boot: 500
+  workers: 2

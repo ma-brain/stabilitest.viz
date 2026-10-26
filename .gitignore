@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+.claude/
+graphify-out/
+..Rcheck/
+*.Rcheck/
+*.tar.gz
+rsconnect/
+.httr-oauth

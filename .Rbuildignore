@@ -1,0 +1,12 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^CLAUDE\.md$
+^LICENSE\.md$
+^README\.md$
+^docs$
+^dev$
+^\.github$
+^\.claude$
+^\.lintr$
+^graphify-out$
+
