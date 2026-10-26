@@ -3,10 +3,13 @@
 #' One `shiny::reactiveValues()` object shared by all modules. It holds the
 #' loaded data, the analysis spec, the results history and the UI mode.
 #'
+#' `raw_data` is the data as loaded and `data` is what analyses use, after
+#' filters. `adam`, `filters`, `checks` and `suggestion` are derived from them
+#' by `stv_store_set_data()` and `stv_store_set_filters()`.
+#'
 #' @param profile `NULL` or one of `stv_profiles()`.
 #'
-#' @return A `shiny::reactiveValues()` object with fields `profile`, `mode`,
-#'   `data`, `data_label`, `data_id`, `spec` and `history`.
+#' @return A `shiny::reactiveValues()` object.
 #' @noRd
 stv_store <- function(profile = NULL) {
   profile <- stv_resolve_profile(profile)
@@ -14,9 +17,15 @@ stv_store <- function(profile = NULL) {
   shiny::reactiveValues(
     profile = profile,
     mode = "guided",
+    raw_data = NULL,
     data = NULL,
     data_label = NULL,
     data_id = NULL,
+    labels = NULL,
+    adam = NULL,
+    filters = NULL,
+    checks = NULL,
+    suggestion = NULL,
     spec = list(),
     history = list()
   )
@@ -42,23 +51,61 @@ stv_store_set_mode <- function(store, mode = c("guided", "expert")) {
 
 #' Put a data set in the store
 #'
-#' Replacing the data clears the spec, because a spec refers to columns of the
-#' old data. The results history is kept for the Compare page.
+#' ADaM structure is detected and default filters are applied. Replacing the
+#' data clears the spec, because a spec refers to columns of the old data. The
+#' results history is kept for the Compare page.
 #'
 #' @param store A store from `stv_store()`.
 #' @param data A data frame, or `NULL` to clear.
 #' @param label Display name.
 #' @param id Identifier of the source, for example an example id.
+#' @param labels Named character vector of variable labels, or `NULL`.
 #'
 #' @return `store`, invisibly.
 #' @noRd
-stv_store_set_data <- function(store, data, label = NULL, id = NULL) {
+stv_store_set_data <- function(store, data, label = NULL, id = NULL, labels = NULL) {
   if (!is.null(data) && !is.data.frame(data)) {
     rlang::abort("`data` must be a data frame or NULL.")
   }
-  store$data <- data
+  store$spec <- list()
   store$data_label <- label
   store$data_id <- id
+  store$labels <- labels
+  store$raw_data <- data
+
+  if (is.null(data)) {
+    store$data <- NULL
+    store$adam <- NULL
+    store$filters <- NULL
+    store$checks <- NULL
+    store$suggestion <- NULL
+    return(invisible(store))
+  }
+
+  adam <- stv_detect_adam(data)
+  store$adam <- adam
+  stv_store_set_filters(store, stv_default_filters(data, adam))
+}
+
+#' Set the filters and refresh the filtered data
+#'
+#' @param store A store from `stv_store()`.
+#' @param filters A filter list, see `stv_apply_filters()`.
+#'
+#' @return `store`, invisibly.
+#' @noRd
+stv_store_set_filters <- function(store, filters) {
+  raw <- shiny::isolate(store$raw_data)
+  adam <- shiny::isolate(store$adam)
+  if (is.null(raw)) {
+    return(invisible(store))
+  }
+
+  data <- stv_apply_filters(raw, adam, filters)
+  store$filters <- filters
+  store$data <- data
+  store$checks <- stv_check_subjects(data, adam)
+  store$suggestion <- stv_suggest_mapping(data, adam)
   store$spec <- list()
   invisible(store)
 }

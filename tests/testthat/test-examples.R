@@ -33,3 +33,16 @@ test_that("registry and versions are available", {
   expect_identical(reg$status[reg$calibration_unit == "welch_unpaired"], "uncalibrated")
   expect_identical(stv_versions()$Component[[1]], "stabilitest.viz")
 })
+
+test_that("synthetic examples load", {
+  ex <- stv_examples()
+  syn <- ex$id[ex$group == "Synthetic files"]
+  expect_length(syn, 9L)
+  for (id in syn) {
+    d <- stv_load_example(id)
+    expect_s3_class(d, "tbl_df")
+    expect_gt(nrow(d), 0L)
+  }
+  expect_identical(dim(stv_load_example("syn_adeff")), c(300L, 12L))
+  expect_identical(anyDuplicated(ex$id), 0L)
+})

@@ -63,3 +63,69 @@ test_that("replacing data clears the spec but keeps history", {
     expect_error(stv_store_set_data(store, "not a data frame"))
   })
 })
+
+test_that("ADaM data get default filters and a suggestion in the store", {
+  store <- stv_store("default")
+  shiny::testServer(mod_data_server, args = list(store = store), {
+    session$setInputs(example = "syn_adeff")
+    expect_identical(store$adam$kind, "BDS")
+    expect_identical(nrow(store$raw_data), 300L)
+    expect_identical(nrow(store$data), 100L)
+    expect_true(store$checks$ok)
+    expect_true("CHG" %in% store$suggestion$column)
+
+    session$setInputs(avisit = "")
+    expect_identical(nrow(store$data), 300L)
+    expect_false(store$checks$ok)
+    expect_identical(store$spec, list())
+  })
+})
+
+test_that("uploading a file fills the store", {
+  path <- tempfile(fileext = ".csv")
+  on.exit(unlink(path))
+  writeLines(c("subject_id,arm,y", "s1,a,1", "s2,b,2", "s3,a,3"), path)
+  store <- stv_store("default")
+  shiny::testServer(mod_data_server, args = list(store = store), {
+    session$setInputs(file = data.frame(name = "mine.csv", size = file.size(path), type = "text/csv", datapath = path))
+    expect_identical(store$data_label, "mine.csv")
+    expect_identical(dim(store$data), c(3L, 3L))
+    expect_identical(store$checks$n_subjects, 3L)
+  })
+})
+
+test_that("an unreadable upload shows an inline message and keeps the old data", {
+  path <- tempfile(fileext = ".csv")
+  on.exit(unlink(path))
+  writeLines("a,b", path)
+  store <- stv_store("default")
+  shiny::testServer(mod_data_server, args = list(store = store), {
+    session$setInputs(example = "pain_trial")
+    session$setInputs(file = data.frame(name = "bad.csv", size = file.size(path), type = "text/csv", datapath = path))
+    expect_match(output$status$html, "no rows")
+    expect_identical(store$data_id, "pain_trial")
+  })
+})
+
+test_that("an oversized or unsupported upload is rejected before reading", {
+  path <- tempfile(fileext = ".pdf")
+  on.exit(unlink(path))
+  writeLines("x", path)
+  store <- stv_store("default")
+  shiny::testServer(mod_data_server, args = list(store = store), {
+    session$setInputs(file = data.frame(name = "a.pdf", size = 10, type = "application/pdf", datapath = path))
+    expect_null(store$data)
+  })
+})
+
+test_that("the public profile has no upload", {
+  expect_false(grepl("Upload a file", as.character(mod_data_ui("d", public = TRUE))))
+  expect_true(grepl("Upload a file", as.character(mod_data_ui("d", public = FALSE))))
+})
+
+test_that("start-up hook applies the upload limit", {
+  old <- options(shiny.maxRequestSize = NULL)
+  on.exit(options(old))
+  stv_on_start("default")()
+  expect_equal(getOption("shiny.maxRequestSize"), 50 * 1024^2)
+})

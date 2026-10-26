@@ -18,7 +18,7 @@ app_ui <- function(request, profile = NULL) {
     lang = "en",
     fillable = FALSE,
     header = golem_add_external_resources(),
-    bslib::nav_panel("Analyse", value = "analyse", icon = bsicons::bs_icon("activity"), mod_analyse_ui("analyse")),
+    bslib::nav_panel("Analyse", value = "analyse", icon = bsicons::bs_icon("activity"), mod_analyse_ui("analyse", public)),
     bslib::nav_panel("Compare", value = "compare", icon = bsicons::bs_icon("layout-split"), mod_compare_ui()),
     bslib::nav_panel("Learn", value = "learn", icon = bsicons::bs_icon("book"), mod_learn_ui()),
     bslib::nav_panel("About", value = "about", icon = bsicons::bs_icon("info-circle"), mod_about_ui()),

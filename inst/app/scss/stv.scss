@@ -416,3 +416,41 @@ pre,
   max-width: 72rem;
   margin-inline: auto;
 }
+
+.stv-has-label {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.stv-details {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.stv-details summary {
+  cursor: pointer;
+  color: var(--stv-muted);
+  margin-bottom: 0.5rem;
+}
+
+.stv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: normal;
+}
+
+.stv-filters .form-label,
+.stv-filters .control-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.stv-filters .shiny-input-container {
+  margin-bottom: 0.75rem;
+}
+
+.stv-table-wrap td {
+  white-space: nowrap;
+}

@@ -39,11 +39,32 @@ run_app <- function(
     app = shiny::shinyApp(
       ui = app_ui,
       server = app_server,
-      onStart = onStart,
+      onStart = stv_on_start(profile, onStart),
       options = options,
       enableBookmarking = enableBookmarking,
       uiPattern = uiPattern
     ),
     golem_opts = list(profile = profile, ...)
   )
+}
+
+#' Start-up hook of the app
+#'
+#' Applies the upload size limit of the profile to Shiny, then calls the
+#' user's own `onStart`.
+#'
+#' @param profile One of `stv_profiles()`.
+#' @param onStart `NULL` or a function.
+#'
+#' @return A function.
+#' @noRd
+stv_on_start <- function(profile, onStart = NULL) {
+  force(profile)
+  force(onStart)
+  function() {
+    mb <- max(stv_config("max_upload_mb", profile), 1)
+    old <- options(shiny.maxRequestSize = mb * 1024^2)
+    shiny::onStop(function() options(old))
+    if (!is.null(onStart)) onStart()
+  }
 }

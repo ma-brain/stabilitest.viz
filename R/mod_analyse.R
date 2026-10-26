@@ -4,10 +4,11 @@
 #' results area. Only the Data step works in M0.
 #'
 #' @param id Module id.
+#' @param public Public profile: no upload.
 #'
 #' @return A `bslib::layout_sidebar()`.
 #' @noRd
-mod_analyse_ui <- function(id) {
+mod_analyse_ui <- function(id, public = FALSE) {
   ns <- shiny::NS(id)
 
   locked <- function(title, text, icon) {
@@ -33,7 +34,7 @@ mod_analyse_ui <- function(id) {
             active = TRUE,
             status = shiny::uiOutput(ns("data_status"), inline = TRUE, class = "stv-step-status")
           ),
-          mod_data_ui(ns("data"))
+          mod_data_ui(ns("data"), public)
         ),
         bslib::accordion_panel(
           value = "question",
