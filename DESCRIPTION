@@ -20,9 +20,12 @@ Imports:
     bsicons,
     config,
     golem,
+    haven,
+    readxl,
     rlang,
     sass,
     shiny (>= 1.9),
+    shinyvalidate,
     stabilitest (>= 0.6.5),
     tibble,
     utils
