@@ -64,10 +64,17 @@ mod_results_server <- function(id, store) {
     })
     shiny::observeEvent(influence_event("plotly_deselect"), selected(integer()))
 
+    # The hint stays until something is selected; a widget output would
+    # show an empty table instead of a validation message
+    output$influence_rows_ui <- shiny::renderUI({
+      if (!length(selected())) {
+        return(shiny::tags$p(class = "stv-tab-intro mt-2", "Click a point, or drag over several, to see their rows here."))
+      }
+      shiny::uiOutput(ns("influence_rows_ui"))
+    })
     output$influence_rows <- reactable::renderReactable({
       result <- shiny::req(store$result)
-      rows <- selected()
-      shiny::validate(shiny::need(length(rows), "Click a point, or drag over several, to see their rows here."))
+      rows <- shiny::req(selected())
       stv_rows_table(result, store$data, rows)
     })
 

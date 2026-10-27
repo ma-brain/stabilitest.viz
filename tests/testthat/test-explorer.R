@@ -94,3 +94,19 @@ test_that("the explorer has the six tabs and never says reproducibility", {
   expect_match(html, "bootstrap same-decision rate", fixed = TRUE)
   expect_false(grepl("reproducib", html, ignore.case = TRUE))
 })
+
+test_that("the influence tab shows a hint until observations are selected", {
+  x <- welch_result()
+  store <- stv_store("default")
+  shiny::isolate({
+    stv_store_set_data(store, x$data, "Two-sample", "syn_two_sample")
+    store$result <- x$result
+  })
+  shiny::testServer(mod_results_server, args = list(store = store), {
+    expect_match(output$influence_rows_ui$html, "Click a point", fixed = TRUE)
+    selected(x$result@removed_rows[1:2])
+    session$flushReact()
+    expect_match(output$influence_rows_ui$html, "influence_rows", fixed = TRUE)
+    expect_false(grepl("Click a point", output$influence_rows_ui$html, fixed = TRUE))
+  })
+})
