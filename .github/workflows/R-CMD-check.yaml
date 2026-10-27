@@ -8,6 +8,11 @@ name: R-CMD-check.yaml
 
 permissions: read-all
 
+# A newer push to the same branch or pull request cancels the older run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
@@ -42,6 +47,9 @@ jobs:
           # curl lets the tests that need Google Fonts check for a connection
           extra-packages: any::rcmdcheck, any::curl
           needs: check
+          # Save the package cache even when the check fails, so the next run
+          # does not reinstall everything
+          cache: always
 
       - uses: r-lib/actions/check-r-package@v2
         with:
