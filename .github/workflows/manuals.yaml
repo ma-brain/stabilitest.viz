@@ -1,0 +1,90 @@
+# Renders the manuals (docs/manuals) and checks them. On a published release
+# the PDFs are built from the tag and attached to it. Run by hand, they are
+# built from the chosen branch and attached to the given tag, which must have
+# the same version (for releases made before the manuals existed).
+on:
+  pull_request:
+    paths:
+      - "docs/manuals/**"
+      - "R/**"
+      - "inst/**"
+      - "DESCRIPTION"
+      - "NEWS.md"
+      - ".github/workflows/manuals.yaml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach the manuals to, for example v1.0.0"
+        required: true
+
+name: manuals.yaml
+
+permissions: read-all
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: local::., any::knitr, any::rmarkdown, any::yaml
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.10.18
+
+      - name: Install poppler
+        run: sudo apt-get install -y poppler-utils
+
+      - name: Render and check
+        run: docs/manuals/build.sh
+
+      - name: Name the PDFs by version
+        run: |
+          version=$(sed -n 's/^Version: //p' DESCRIPTION)
+          if [[ -n "$TAG" && "$TAG" != "v$version" ]]; then
+            echo "Tag $TAG does not match version $version" >&2
+            exit 1
+          fi
+          mkdir manuals
+          for doc in user-guide technical-documentation executive-summary; do
+            cp "docs/manuals/_output/$doc.pdf" "manuals/stabilitest.viz_${version}-${doc}.pdf"
+          done
+          ls manuals
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manuals
+          path: manuals/
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: manuals
+          path: manuals
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" manuals/*.pdf --clobber --repo "$GITHUB_REPOSITORY"
