@@ -19,6 +19,7 @@ app_server <- function(input, output, session, profile = NULL) {
   shiny::observeEvent(input$dark_mode, store$theme <- input$dark_mode)
 
   mod_analyse_server("analyse", store)
+  mod_compare_server("compare", store)
 
   invisible(NULL)
 }

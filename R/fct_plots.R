@@ -219,3 +219,57 @@ stv_plotly <- function(p, source = NULL, mode = "light") {
   )
   plotly::config(w, displaylogo = FALSE, modeBarButtonsToRemove = c("lasso2d", "autoScale2d", "toggleSpikelines"))
 }
+
+#' Colours for several analyses
+#'
+#' The brand series. Dark mode starts with the light tones (primary, accent,
+#' text) because the dark teals do not show on the dark background.
+#'
+#' @param n Number of colours.
+#' @param mode `"light"` or `"dark"`.
+#'
+#' @return Colours, recycled to `n`.
+#' @noRd
+stv_series_colours <- function(n, mode = "light") {
+  pal <- stv_palette(if (identical(mode, "dark")) "dark" else "light")
+  series <- if (identical(mode, "dark")) {
+    c(pal$primary, pal$accent, pal$fg, pal$series[5], pal$series[3])
+  } else {
+    pal$series
+  }
+  rep_len(series, n)
+}
+
+#' Removal paths of several analyses
+#'
+#' The worst-case removal path of each analysis, as returned by stabilitest,
+#' on one plot. Each analysis is drawn against its own alpha (dashed when the
+#' alphas differ).
+#'
+#' @param entries History entries from `stv_store_add_result()`.
+#' @param mode `"light"` or `"dark"`.
+#'
+#' @return A ggplot.
+#' @noRd
+stv_plot_compare_removal <- function(entries, mode = "light") {
+  col <- stv_plot_colours(mode)
+  # The test name without the family ("Compare two groups (continuous): ")
+  names <- vapply(entries, \(e) paste0("#", e$id, " ", sub("^.*: ", "", e$result@method_label)), character(1))
+  df <- do.call(rbind, Map(\(e, nm) {
+    path <- as.data.frame(e$result@removal)
+    data.frame(analysis = nm, k_removed = path$k_removed, p_value = path$p_value,
+      text = paste0(nm, "<br>", path$k_removed, " removed<br>p = ", stv_tooltip_p(path$p_value)))
+  }, entries, names))
+  df$analysis <- factor(df$analysis, levels = names)
+  alphas <- unique(vapply(entries, \(e) e$result@alpha, numeric(1)))
+
+  ggplot2::ggplot(df, ggplot2::aes(.data$k_removed, .data$p_value, colour = .data$analysis)) +
+    ggplot2::geom_hline(yintercept = alphas, colour = col$muted, linetype = "dashed", linewidth = 0.5) +
+    ggplot2::geom_line(linewidth = 0.8) +
+    stv_tooltip_points(ggplot2::aes(text = .data$text), size = 1.4) +
+    ggplot2::scale_colour_manual(values = stats::setNames(stv_series_colours(length(names), mode), names)) +
+    ggplot2::scale_x_continuous("Observations removed (worst-case path)", breaks = scales_int_breaks) +
+    ggplot2::labs(caption = paste0("Dashed line: alpha ", paste(format(alphas), collapse = ", "), ".")) +
+    stv_p_axis("p-value") +
+    stv_plot_theme(col)
+}

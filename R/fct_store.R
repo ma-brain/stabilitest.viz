@@ -121,12 +121,39 @@ stv_store_set_filters <- function(store, filters) {
 
 #' Append a result to the session history
 #'
+#' Each entry records the result with the data it was run on, for the Compare
+#' page: `id` (numbered from 1 in the session), `result`, `data_label`,
+#' `data_id`, `n_rows` (rows after filters) and `time`.
+#'
 #' @param store A store from `stv_store()`.
-#' @param result Any result object.
+#' @param result An `stv_result`.
 #'
 #' @return `store`, invisibly.
 #' @noRd
 stv_store_add_result <- function(store, result) {
-  store$history <- c(shiny::isolate(store$history), list(result))
+  history <- shiny::isolate(store$history)
+  ids <- vapply(history, \(e) e$id, integer(1))
+  entry <- list(
+    id = if (length(ids)) max(ids) + 1L else 1L,
+    result = result,
+    data_label = shiny::isolate(store$data_label),
+    data_id = shiny::isolate(store$data_id),
+    n_rows = nrow(shiny::isolate(store$data)) %||% NA_integer_,
+    time = Sys.time()
+  )
+  store$history <- c(history, list(entry))
+  invisible(store)
+}
+
+#' Remove entries from the session history
+#'
+#' @param store A store from `stv_store()`.
+#' @param ids Entry ids to remove.
+#'
+#' @return `store`, invisibly.
+#' @noRd
+stv_store_remove_results <- function(store, ids) {
+  history <- shiny::isolate(store$history)
+  store$history <- Filter(\(e) !e$id %in% ids, history)
   invisible(store)
 }
