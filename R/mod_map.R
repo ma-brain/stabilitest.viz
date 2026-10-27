@@ -17,18 +17,22 @@ mod_map_ui <- function(id) {
 #' @param data A data frame.
 #'
 #' @return A list of column-name vectors: `all`, `numeric`, `binary`, `group`.
+#'   `group` leaves out columns whose values are all different, such as IDs.
 #' @noRd
 stv_column_kinds <- function(data) {
   is_binary <- vapply(data, \(x) {
     (is.numeric(x) || is.logical(x)) && length(unique(x[!is.na(x)])) > 0L && all(x[!is.na(x)] %in% c(0, 1))
   }, logical(1))
   n_unique <- vapply(data, \(x) length(unique(x[!is.na(x)])), integer(1))
+  n_present <- vapply(data, \(x) sum(!is.na(x)), integer(1))
   is_text <- vapply(data, \(x) is.character(x) || is.factor(x), logical(1))
+  # A column where every value is different (a subject ID) cannot define groups
+  is_id <- n_unique == n_present & n_present > 2L
   list(
     all = names(data),
     numeric = names(data)[vapply(data, is.numeric, logical(1))],
     binary = names(data)[is_binary],
-    group = names(data)[is_text & n_unique >= 2L | is_binary | (n_unique >= 2L & n_unique <= 8L)]
+    group = names(data)[!is_id & (is_text & n_unique >= 2L | is_binary | (n_unique >= 2L & n_unique <= 8L))]
   )
 }
 
@@ -109,9 +113,17 @@ mod_map_server <- function(id, store, family) {
           )
         }
         if (paired && identical(layout, "wide")) {
-          pair_choices <- kinds$numeric
-          controls$outcome <- select("outcome", "First measurement", pair_choices, stv_pick(keep(input$outcome), pair_choices, pair_choices[1]))
-          controls$outcome2 <- select("outcome2", "Second measurement", pair_choices, stv_pick(keep(input$outcome2), pair_choices, pair_choices[2]))
+          pair_choices <- setdiff(kinds$numeric, suggested$id)
+          # Keep the user's pair only if it is two different columns; an
+          # outcome left over from the unpaired layout must not fill both
+          first <- keep(input$outcome)
+          second <- keep(input$outcome2)
+          if (!(length(first) && length(second) && all(c(first, second) %in% pair_choices) && first != second)) {
+            first <- pair_choices[1]
+            second <- if (length(pair_choices) > 1L) pair_choices[[2]] else ""
+          }
+          controls$outcome <- select("outcome", "First measurement", pair_choices, first)
+          controls$outcome2 <- select("outcome2", "Second measurement", pair_choices, second)
         } else {
           controls$outcome <- select(
             "outcome", if (binary) "Outcome (response)" else "Outcome", outcome_choices,
@@ -119,6 +131,12 @@ mod_map_server <- function(id, store, family) {
           )
           controls$success <- shiny::uiOutput(ns("success_ui"))
           controls$group <- select("group", "Group", kinds$group, stv_pick(keep(input$group), kinds$group, suggested$group))
+          if (!length(kinds$group)) {
+            controls$no_group <- shiny::tags$p(
+              class = "small text-body-secondary",
+              "No column here can split the rows into groups. For before and after measurements in two columns, choose a paired test in the Question step."
+            )
+          }
           controls$levels <- shiny::uiOutput(ns("levels_ui"))
           if (paired) {
             controls$pair_id <- select("pair_id", "Pair identifier", kinds$all, stv_pick(keep(input$pair_id), kinds$all, suggested$id))

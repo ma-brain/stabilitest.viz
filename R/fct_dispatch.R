@@ -285,8 +285,9 @@ stv_run_async <- function(plan, data) {
   prepared <- stv_apply_prep(plan$prep, data)
   runner <- stv_eval_call
   environment(runner) <- globalenv()
+  # Rethrow without the call, so the message is stabilitest's own text
   task <- mirai::mirai(
-    runner(call, data),
+    tryCatch(runner(call, data), error = function(e) stop(conditionMessage(e), call. = FALSE)),
     runner = runner, call = plan$call, data = prepared$data,
     .compute = stv_compute_profile()
   )

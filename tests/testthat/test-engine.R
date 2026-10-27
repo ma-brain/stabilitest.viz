@@ -204,3 +204,30 @@ test_that("a cancelled background run reports an error value", {
   mirai::stop_mirai(async$task)
   expect_true(mirai::is_error_value(mirai::call_mirai(async$task)$data))
 })
+
+test_that("a stabilitest error from a background run reads as stabilitest's message", {
+  skip_on_cran()
+  skip_if_not_installed("promises")
+  skip_if_not_installed("later")
+  mirai::daemons(1, .compute = stv_compute_profile())
+  on.exit(stv_daemons_stop())
+
+  # Two subjects as "groups": one observation each
+  data <- syn("paired_bp.csv")
+  spec <- stv_spec_new("location", "wilcoxon", outcome = "after", group = "subject_id",
+    levels = c("P001", "P002"), settings = fast)
+  async <- stv_run_async(stv_plan(spec), data)
+  err <- NULL
+  promises::then(promises::as.promise(async$task), onRejected = \(e) err <<- e)
+  start <- Sys.time()
+  while (is.null(err) && difftime(Sys.time(), start, units = "secs") < 20) later::run_now(0.05)
+
+  expect_s3_class(err, "error")
+  expect_identical(stv_error_text(err), "Each group must have at least 4 observations")
+})
+
+test_that("error text drops R's call prefix", {
+  expect_identical(stv_error_text(simpleError("Error in f(x = \"a: b\") : boom")), "boom")
+  expect_identical(stv_error_text(simpleError("Error: boom\n")), "boom")
+  expect_identical(stv_error_text(simpleError("boom: it broke")), "boom: it broke")
+})

@@ -39,15 +39,27 @@ mod_question_ui <- function(id) {
 #' @noRd
 mod_question_server <- function(id, store) {
   shiny::moduleServer(id, function(input, output, session) {
+    # Test suggested for the loaded data; applied when the test list is drawn
+    preferred_test <- shiny::reactiveVal(NULL)
+
     shiny::observeEvent(store$raw_data, {
       data <- shiny::isolate(store$data)
       suggestion <- shiny::isolate(store$suggestion)
       if (is.null(data)) {
+        preferred_test(NULL)
         shiny::updateRadioButtons(session, "family", selected = character(0))
       } else {
-        shiny::updateRadioButtons(session, "family", selected = stv_suggest_family(suggestion, data))
+        family <- stv_suggest_family(suggestion, data)
+        test <- stv_suggest_test(suggestion, data, family)
+        preferred_test(test)
+        shiny::updateRadioButtons(session, "family", selected = family)
       }
     }, ignoreNULL = FALSE)
+
+    # A test the user picks replaces the suggestion
+    shiny::observeEvent(input$test, {
+      if (!identical(input$test, preferred_test())) preferred_test(NULL)
+    }, ignoreInit = TRUE)
 
     output$test_ui <- shiny::renderUI({
       family <- input$family
@@ -58,7 +70,8 @@ mod_question_server <- function(id, store) {
       label <- switch(family, tost = "Endpoint", glm = "Outcome type", "Test")
       shiny::selectInput(
         session$ns("test"), label, choices = tests,
-        selected = shiny::isolate(input$test), selectize = FALSE, width = "100%"
+        selected = stv_pick(preferred_test(), tests, shiny::isolate(input$test)),
+        selectize = FALSE, width = "100%"
       )
     })
 

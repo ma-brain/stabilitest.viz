@@ -387,6 +387,26 @@ stv_suggest_family <- function(suggestion, data) {
   "location"
 }
 
+#' Suggest a test within the suggested family
+#'
+#' Data with no group column and at least two numeric measurement columns
+#' (for example before and after) is read as paired.
+#'
+#' @inheritParams stv_suggest_family
+#' @param family The suggested family.
+#'
+#' @return A test id from `stv_tests(family)`, or `NULL` for the default.
+#' @noRd
+stv_suggest_test <- function(suggestion, data, family) {
+  roles <- if (is.null(suggestion)) character() else suggestion$role
+  if (!identical(family, "location") || "Group" %in% roles) {
+    return(NULL)
+  }
+  ids <- suggestion$column[roles == "Subject"]
+  measurements <- setdiff(names(data)[vapply(data, is.numeric, logical(1))], ids)
+  if (length(measurements) >= 2L) "paired.t.test" else NULL
+}
+
 #' Create an analysis spec
 #'
 #' @param family One of `stv_families()$id`.

@@ -116,3 +116,35 @@ test_that("changing the data clears the result and spec", {
     expect_identical(store$spec, list())
   })
 })
+
+test_that("ID columns are not offered as groups", {
+  data <- stv_read_file(system.file("extdata", "synthetic", "paired_bp.csv", package = "stabilitest.viz"), "p.csv")$data
+  expect_false("subject_id" %in% stv_column_kinds(data)$group)
+  data2 <- stv_read_file(system.file("extdata", "synthetic", "two_sample_continuous.csv", package = "stabilitest.viz"), "t.csv")$data
+  expect_identical(stv_column_kinds(data2)$group, "arm")
+})
+
+test_that("wide paired data suggests a paired test, grouped data does not", {
+  read <- \(f) stv_read_file(system.file("extdata", "synthetic", f, package = "stabilitest.viz"), f)$data
+  paired <- read("paired_bp.csv")
+  sug <- stv_suggest_mapping(paired, stv_detect_adam(paired))
+  expect_identical(stv_suggest_family(sug, paired), "location")
+  expect_identical(stv_suggest_test(sug, paired, "location"), "paired.t.test")
+
+  grouped <- read("two_sample_continuous.csv")
+  sug2 <- stv_suggest_mapping(grouped, stv_detect_adam(grouped))
+  expect_null(stv_suggest_test(sug2, grouped, "location"))
+})
+
+test_that("loading paired data selects the paired test, and the user can change it", {
+  store <- stv_store("default")
+  shiny::testServer(mod_analyse_server, args = list(store = store), {
+    session$setInputs(`data-example` = "syn_paired")
+    # In a browser the family radio follows the suggestion; set it by hand here
+    session$setInputs(`question-family` = "location")
+    expect_match(output[["question-test_ui"]]$html, '<option value="paired.t.test" selected>', fixed = TRUE)
+    session$setInputs(`question-family` = "location", `question-test` = "paired.t.test")
+    session$setInputs(`question-test` = "wilcoxon.paired")
+    expect_match(output[["question-test_ui"]]$html, '<option value="wilcoxon.paired" selected>', fixed = TRUE)
+  })
+})

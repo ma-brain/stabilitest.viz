@@ -121,7 +121,7 @@ mod_run_server <- function(id, store, runner = stv_run_async) {
         return()
       }
       if (inherits(raw, "error")) {
-        message(list(type = "error", text = paste("stabilitest could not run this analysis:", conditionMessage(raw))))
+        message(list(type = "error", text = paste("stabilitest could not run this analysis:", stv_error_text(raw))))
         return()
       }
       result <- tryCatch(
@@ -172,4 +172,14 @@ stv_format_seconds <- function(seconds) {
   } else {
     sprintf("%d minutes", as.integer(round(seconds / 60)))
   }
+}
+
+#' Error text without R's "Error in <call> :" prefix
+#'
+#' @param e A condition.
+#'
+#' @return A string.
+#' @noRd
+stv_error_text <- function(e) {
+  trimws(sub("(?s)^Error(?: in .*? )?\\s*:\\s*", "", conditionMessage(e), perl = TRUE))
 }
