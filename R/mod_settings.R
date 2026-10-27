@@ -44,8 +44,11 @@ mod_settings_server <- function(id, store, family) {
   shiny::moduleServer(id, function(input, output, session) {
     max_n_boot <- stv_config("max_n_boot", shiny::isolate(store$profile))
     defaults <- stv_default_settings()
+    # The default must fit the profile's limit, or Guided mode, which hides
+    # this setting, could never run
+    defaults$n_boot <- min(defaults$n_boot, max_n_boot)
 
-    shiny::updateNumericInput(session, "n_boot", max = max_n_boot)
+    shiny::updateNumericInput(session, "n_boot", value = defaults$n_boot, max = max_n_boot)
 
     weights <- shiny::reactive({
       jackknife <- input$w_jackknife %||% defaults$weights[["jackknife"]]
