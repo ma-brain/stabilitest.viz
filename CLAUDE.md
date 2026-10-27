@@ -29,6 +29,7 @@ separate package. Source of truth: `docs/PLAN.md`. Brand: `docs/brand/BRAND.md`.
 - Docs: `Rscript -e 'devtools::document()'`
 - Test: `Rscript -e 'devtools::test()'`
 - Check: `Rscript -e 'devtools::check()'` (must stay at 0 errors, 0 warnings, 0 notes)
+- Docker: `docker build -t stabilitest-viz .` then `docker run --rm -p 3838:3838 stabilitest-viz` (see `docs/deployment.md`)
 - Profiles (`inst/golem-config.yml`): default, production, public (Guided only,
   uploads off, example preloaded). `R_CONFIG_ACTIVE` is honoured if valid.
 
@@ -44,4 +45,4 @@ assets in `inst/app/www/`.
 - M3 Results: **done** (branch `m3-results`): explorer tabs (`R/fct_plots.R`, `R/mod_results.R`), linked selection
 - M4 Compare + reports: **done** (branch `m4-compare-reports`): session history and Compare page, Export tab, Quarto report
 - M5 Guided/Learn/polish: **done** (branch `m5-guided-learn`): plain-language panel, metric popovers, Learn links, citation, accessibility pass
-- M6 Release: not started. See `docs/PLAN.md` section 8.
+- M6 Release: **done** (branch `m6-release`): Dockerfile, `docs/deployment.md`, Docker CI, v1.0.0. See `docs/PLAN.md` section 8.

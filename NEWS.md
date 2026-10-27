@@ -1,33 +1,52 @@
-# stabilitest.viz (development version)
+# stabilitest.viz 1.0.0
 
-* Guided mode (M5): a "What does this mean?" panel restates each result in
-  plain language. Every sentence repeats a number stabilitest returned, and the
-  score is read as fragile or robust only when stabilitest returned a label.
-  Expert mode opens the results on the Code tab.
+The complete app (milestones M3 to M6 of `docs/PLAN.md`): explore a result,
+compare analyses, export a report, a plain-language Guided mode and a Docker
+image. Every number still comes from stabilitest, now 0.6.6 or later.
+
+## Results explorer
+
+* Tabs below the score: removal path, influence, bootstrap, removed
+  observations, interpretation, code and export. Plots are interactive and
+  follow the light/dark switch.
+* Selecting observations in the influence plot or the removed-observations
+  table selects them in both. Each removal step links to the data row it
+  removed, for every method (stabilitest 0.6.6 names the removed units).
+
+## Compare and reports
+
+* Compare: every analysis run in the session is kept with its data. Selected
+  analyses appear side by side, with their removal paths on one plot and a
+  note when they used different data.
+* Export: a report as HTML, Word or PDF (Quarto; PDF through Typst, no LaTeX),
+  plots as PNG or SVG, tables as XLSX or CSV, the R script and the stabilitest
+  result as RDS.
+
+## Guided mode and Learn
+
+* A "What does this mean?" panel restates each result in plain language. Every
+  sentence repeats a number stabilitest returned, and the score is read as
+  fragile or robust only when stabilitest returned a label. Expert mode opens
+  the results on the Code tab.
 * Every measure in the score row has an info button with a one-sentence
   definition.
-* Learn links the stabilitest repository and its three case-study vignettes;
-  About shows how to cite stabilitest.
-* Accessibility: the Guided/Expert switch has a label for screen readers,
-  outline buttons meet WCAG AA contrast in dark mode, and the first three
-  Compare line colours reach 3:1 against the plot background.
-* Fixed: the public profile could not run, because the default 1000 bootstrap
-  resamples exceeded its limit of 500 and Guided mode hides that setting.
-* Compare (M4): every analysis run in the session is kept, with its data.
-  Select analyses to see them side by side and their removal paths on one
-  plot. A note appears when they were run on different data.
-* Export tab (M4): a report as HTML, Word or PDF (rendered with Quarto; PDF
-  through Typst, no LaTeX), plots as PNG or SVG, tables as XLSX or CSV, the R
-  script and the stabilitest result as RDS.
-* Results explorer (M3): tabs for the removal path, influence, bootstrap,
-  removed observations, interpretation and code below the score. Plots are
-  interactive and follow the light/dark switch. Selecting observations in the
-  influence plot or the removed-observations table selects them in both.
-* Each removal step links to the data row it removed, for every method.
-* Fixed: data with named rows (such as `mtcars`) lost the link between results
-  and rows.
-* Requires stabilitest 0.6.6, which names the observations removed at each
-  step of the two-group removal paths.
+* Learn links the stabilitest repository and its case-study vignettes; About
+  shows how to cite stabilitest.
+* Accessibility: labelled controls, WCAG AA text contrast in both themes and
+  plot colours at 3:1 or more.
+
+## Deployment
+
+* A Dockerfile (`rocker/r-ver` 4.6.1, Quarto 1.10.18, stabilitest v0.6.6)
+  serving the app on port 3838 as a non-root user. The profile is chosen with
+  `R_CONFIG_ACTIVE`. See `docs/deployment.md`.
+
+## Fixes
+
+* The public profile could not run: the default 1000 bootstrap resamples
+  exceeded its limit of 500, and Guided mode hides that setting.
+* Data with named rows (such as `mtcars`) lost the link between results and
+  rows.
 
 # stabilitest.viz 0.1.0
 

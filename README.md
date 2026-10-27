@@ -7,12 +7,10 @@ The app never re-implements statistics. Every number comes from stabilitest's
 exported functions, and a categorical label (for example Fragile) is shown only
 when stabilitest returns one. Otherwise the app says the result is numeric only.
 
-> Status: **v0.1.0, M3 to M5 in development.** Load data, choose one of six methods, map columns, run in the
-> background, read the score and explore it (removal path, influence,
+> Status: **v1.0.0.** Load data, choose one of six methods, map columns, run in
+> the background, read the score and explore it (removal path, influence,
 > bootstrap, removed observations, interpretation, code), compare analyses and
-> export a report, with a plain-language Guided mode. The release (Docker image,
-> v1.0) comes next; see [NEWS.md](NEWS.md) and
-> [docs/PLAN.md](docs/PLAN.md).
+> export a report, with a plain-language Guided mode. See [NEWS.md](NEWS.md).
 
 ## Installation
 
@@ -26,11 +24,36 @@ pak::pak("ma-brain/stabilitest.viz")
 ```r
 library(stabilitest.viz)
 
-run_app()                    # local use
-run_app(profile = "public")  # public companion: Guided mode, no uploads
+run_app()                     # local use
+run_app(profile = "public")   # public companion: Guided mode, no uploads
+run_app(profile = "production")
 ```
 
-Profiles and limits are defined in `inst/golem-config.yml`.
+`run_app()` returns a Shiny app object; printing it (as above at the console)
+runs it. Pass Shiny options through, for example
+`shiny::runApp(run_app(), port = 3838, launch.browser = TRUE)`.
+
+| Profile      | Use                    | Uploads | Max resamples |
+|--------------|------------------------|---------|---------------|
+| `default`    | local use              | 50 MB   | 5000          |
+| `production` | self-hosted server     | 25 MB   | 2000          |
+| `public`     | public companion       | off     | 500           |
+
+Profiles are defined in `inst/golem-config.yml`. Without `profile`, the
+`R_CONFIG_ACTIVE` environment variable is used if it names one of them.
+Reports need the [Quarto](https://quarto.org) command-line tool; without it the
+Export tab offers everything except the report.
+
+## Docker
+
+```sh
+docker build -t stabilitest-viz .
+docker run --rm -p 3838:3838 stabilitest-viz                          # production
+docker run --rm -p 3838:3838 -e R_CONFIG_ACTIVE=public stabilitest-viz
+```
+
+Then open <http://localhost:3838>. The image includes Quarto, so reports work.
+See [docs/deployment.md](docs/deployment.md).
 
 ## Development
 
