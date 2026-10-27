@@ -39,7 +39,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          # curl lets the tests that need Google Fonts check for a connection
+          extra-packages: any::rcmdcheck, any::curl
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2

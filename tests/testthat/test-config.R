@@ -27,6 +27,8 @@ test_that("profile resolution validates and falls back", {
 })
 
 test_that("run_app returns an app object", {
+  # Google Fonts are downloaded; skip_if_offline() needs curl
+  skip_if_not_installed("curl")
   skip_if_offline()
   expect_s3_class(run_app(), "shiny.appobj")
   expect_s3_class(run_app(profile = "public"), "shiny.appobj")

@@ -6,6 +6,8 @@ test_that("palette follows the brand tokens", {
 })
 
 test_that("theme builds with light and dark variables", {
+  # Google Fonts are downloaded; skip_if_offline() needs curl
+  skip_if_not_installed("curl")
   skip_if_offline()
   theme <- stv_theme()
   expect_s3_class(theme, "bs_theme")
