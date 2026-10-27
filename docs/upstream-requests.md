@@ -18,10 +18,12 @@ dataset", while the same data with `factor(arm)` work. `robustness_lm()` accepts
 The app converts text predictors to factors in its prepared data (shown in the generated
 code), but a clear error or automatic conversion in stabilitest would help direct users.
 
-## 4. Greedy removal set for `robustness_analysis()` (M2)
+## 4. Greedy removal set for `robustness_analysis()` (M2) — done in stabilitest 0.6.6
 `robustness_model` results carry `removed_rows`, but `robustness_analysis` returns only the
 removal path (`worstcase$results`) and `fragility_index`, not which observations were removed.
 The M3 "Removed observations" table needs the set for the two-group tests too.
+
+**Done:** stabilitest 0.6.6 (PR #13) adds `removed_unit` and `removed_label` to `worstcase$results` and `extreme$results`.
 
 ## 5. `removed_rows` indexing (M2, documentation)
 `removed_rows` and jackknife `row` index the model frame after rows with missing values are

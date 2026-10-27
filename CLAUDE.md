@@ -7,8 +7,11 @@ separate package. Source of truth: `docs/PLAN.md`. Brand: `docs/brand/BRAND.md`.
 ## Hard rules
 - **Never re-implement statistics.** Every number comes from stabilitest's exported
   functions. All stabilitest calls go through `R/fct_dispatch.R`.
-- **Do not modify `../stabilitest`.** Needed package changes go in
-  `docs/upstream-requests.md`.
+- **stabilitest changes go upstream, not into the app.** A stabilitest bug or gap
+  found while building the app (M3 to M5) is fixed in `../stabilitest`: a branch
+  from its `main`, a test that no numbers change, a version bump, a PR (squash
+  merge), a tag and a release. Then raise `stabilitest (>= x.y.z)` here and
+  record it in `docs/upstream-requests.md`.
 - **Fail-closed calibration.** Show a categorical label only when stabilitest returns
   one (today: eligible, significant Fisher). Otherwise show the neutral "numeric only,
   no validated cutoff" message. Never infer a label from a score. Green/red only for
