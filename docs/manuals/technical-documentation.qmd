@@ -231,7 +231,9 @@ statement about the settings only; stabilitest decides from the data whether a l
 applies. The number of resamples is capped by the profile (`max_n_boot`), and
 `mod_settings_server()` lowers the default to `min(1000, max_n_boot)`. In the `public`
 profile (cap 500) the validated Fisher settings, which need 1000 resamples, are
-therefore not reachable.
+therefore not reachable: given the limit, `stv_profile_status()` reports
+`reachable = FALSE`, and the Settings step shows a note instead of the button. The
+limit is kept on purpose, to bound the work a public request can cause.
 
 # The result class
 

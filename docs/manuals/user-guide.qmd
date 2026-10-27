@@ -189,6 +189,9 @@ that cap.
 of the one validated calibration profile. With these settings, and data that
 stabilitest finds eligible, stabilitest returns a categorical label. The button sets the
 settings only: whether a label is returned is stabilitest's decision.
+The validated settings need 1000 resamples; where the profile allows fewer, as the
+`public` profile does (500), the button is not offered and a note says that results
+there are numeric only.
 
 ## 5. Run
 
@@ -364,7 +367,9 @@ screenshot("step-settings-expert", "Settings in Expert mode.", "30%")
 
 **Why does my result have no label?** stabilitest has a validated calibration for one
 setting today (the Fisher exact test, significant, under the validated settings). For
-every other method the score is reported as a number. This is deliberate.
+every other method the score is reported as a number. This is deliberate. In the
+`public` profile the validated settings are out of reach, so no result there has a
+label.
 
 **Is a score of 30 fragile?** Without a label, the app and stabilitest do not say. Read
 the components: after how many removals the decision changes, and how often

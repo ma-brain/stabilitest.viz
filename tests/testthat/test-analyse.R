@@ -54,6 +54,26 @@ test_that("the validated Fisher button sets the profile, in both modes", {
   })
 })
 
+test_that("the public profile notes that the validated Fisher settings are out of reach", {
+  status <- stv_profile_status(stv_spec_new("proportion", "fisher"), max_n_boot = 500)
+  expect_false(status$reachable)
+  expect_match(status$message, "need 1000 bootstrap resamples", fixed = TRUE)
+  expect_match(status$message, "at most 500", fixed = TRUE)
+  expect_true(stv_profile_status(stv_spec_new("proportion", "fisher"), max_n_boot = 1000)$reachable)
+
+  store <- stv_store("public")
+  shiny::testServer(mod_settings_server, args = list(store = store, family = \() list(family = "proportion", test = "fisher")), {
+    html <- output$profile$html
+    expect_match(html, "at most 500", fixed = TRUE)
+    expect_false(grepl("use_fisher_profile", html, fixed = TRUE))
+  })
+
+  store <- stv_store("default")
+  shiny::testServer(mod_settings_server, args = list(store = store, family = \() list(family = "proportion", test = "fisher")), {
+    expect_match(output$profile$html, "use_fisher_profile", fixed = TRUE)
+  })
+})
+
 test_that("running through the module stores a result and the code", {
   skip_if_not_installed("promises")
   skip_if_not_installed("later")

@@ -86,11 +86,11 @@ mod_settings_server <- function(id, store, family) {
       if (!identical(fam$test, "fisher") || !identical(fam$family, "proportion")) {
         return(NULL)
       }
-      status <- stv_profile_status(list(family = "proportion", test = "fisher", settings = settings()))
+      status <- stv_profile_status(list(family = "proportion", test = "fisher", settings = settings()), max_n_boot)
       shiny::tags$div(
         class = "stv-callout small mb-3",
         shiny::tags$p(class = "mb-2", status$message),
-        if (!isTRUE(status$inside)) {
+        if (!isTRUE(status$inside) && isTRUE(status$reachable)) {
           shiny::actionButton(session$ns("use_fisher_profile"), "Use the validated Fisher settings", class = "btn-sm btn-outline-primary")
         }
       )

@@ -93,25 +93,40 @@ stv_fisher_profile_settings <- function() {
 #' reports what it returns.
 #'
 #' @param spec An analysis spec.
+#' @param max_n_boot The profile's limit on bootstrap resamples. When it is
+#'   below what the validated profile needs, the profile cannot be reached.
 #'
 #' @return A list: `has_profile` (the method has one), `inside` (settings match
-#'   it) and `message`.
+#'   it), `reachable` (the limit allows it) and `message`.
 #' @noRd
-stv_profile_status <- function(spec) {
+stv_profile_status <- function(spec, max_n_boot = Inf) {
   if (!identical(spec$family, "proportion") || !identical(spec$test, "fisher")) {
     return(list(
-      has_profile = FALSE, inside = NA,
+      has_profile = FALSE, inside = NA, reachable = NA,
       message = "No validated calibration profile exists for this method. The result is numeric only."
     ))
   }
   s <- spec$settings %||% stv_default_settings()
   ref <- stv_fisher_profile_settings()
+  if (max_n_boot < ref$n_boot) {
+    return(list(
+      has_profile = TRUE, inside = FALSE, reachable = FALSE,
+      message = sprintf(
+        paste(
+          "The validated Fisher settings need %d bootstrap resamples, and this deployment allows at most %d,",
+          "so results here are numeric only. Run the app locally or on a server with a higher limit to get",
+          "a label where stabilitest returns one."
+        ),
+        as.integer(ref$n_boot), as.integer(max_n_boot)
+      )
+    ))
+  }
   inside <- isTRUE(all.equal(s$alpha, ref$alpha)) &&
     isTRUE(all.equal(as.numeric(s$n_boot), ref$n_boot)) &&
     isTRUE(all.equal(s$max_removal_pct, ref$max_removal_pct)) &&
     isTRUE(all.equal(unname(s$weights[names(ref$weights)]), unname(ref$weights)))
   list(
-    has_profile = TRUE, inside = inside,
+    has_profile = TRUE, inside = inside, reachable = TRUE,
     message = if (inside) {
       "Settings match the validated Fisher profile. stabilitest decides whether the data are eligible for a label."
     } else {
