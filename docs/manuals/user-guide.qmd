@@ -1,0 +1,397 @@
+---
+title: "User's guide"
+subtitle: "Running and reading robustness analyses with stabilitest.viz"
+doctype: "User's guide"
+toc: true
+---
+
+```{r}
+source("_common.R")
+families <- stv$stv_families()
+defaults <- stv$stv_default_settings()
+glossary <- stv$stv_glossary()
+examples <- stv$stv_examples()
+```
+
+# About this guide
+
+stabilitest.viz is a web application for the stabilitest R package. stabilitest asks
+how easily a statistical conclusion could be overturned; the app lets you ask that
+question of your own data without writing code, then read, compare and export the
+answer.
+
+This guide is for anyone who runs analyses in the app: statisticians, clinical
+reviewers and students. It walks through the five steps of an analysis, explains every
+part of a result, and covers comparison, export and the two modes of the app. The
+*Technical documentation* describes how the app is built and deployed.
+
+Two rules hold throughout the app, and they shape what you see:
+
+- **Every number comes from stabilitest.** The app computes no statistics of its own.
+  It prepares your data, calls stabilitest, and displays what stabilitest returns.
+- **A label appears only when stabilitest gives one.** A categorical label such as
+  *Fragile* needs a validated calibration. Where none exists, the app shows the score
+  as a number and says so; it never colours a score red or green on its own.
+
+# Getting started
+
+## Starting the app
+
+In R, install the package once and start the app:
+
+```r
+pak::pak("ma-brain/stabilitest.viz")
+stabilitest.viz::run_app()
+```
+
+The app opens in your browser. Your organisation may instead run it on a server or
+from the Docker image, in which case you only need the address.
+
+## Profiles
+
+The app runs under one of three profiles, chosen by whoever starts it. The profile sets
+limits and which features are available.
+
+```{r}
+md_table(profiles_table())
+```
+
+## The screen
+
+The bar at the top has four pages: **Analyse**, where analyses are run; **Compare**,
+which lines up analyses from this session; **Learn**, which explains the three stress
+tests; and **About**, with versions, the calibration registry and the citation. On the
+right are the **Guided / Expert** switch (not in the public profile) and the light/dark
+switch.
+
+On the Analyse page, the steps of an analysis are in the panel on the left, and the
+data and results on the right. The left panel can be collapsed with the arrow at its top.
+
+# An analysis in five steps
+
+The steps are numbered 1 to 5. A tick appears next to each step that is complete.
+
+## 1. Data
+
+Choose a bundled example or, unless the profile turns uploads off, upload a file.
+
+```{r}
+screenshot("step-data", "The Data step.", "40%")
+```
+
+**Files.** CSV, TSV and text files, Excel workbooks (`.xlsx`, `.xls`, with a choice of
+sheet), SAS transport files (`.xpt`) and SAS data sets (`.sas7bdat`) are read. SAS
+variable labels are kept and shown as tooltips on column names.
+
+**Bundled examples.**
+
+```{r}
+md_table(data.frame(Example = examples$label, Source = examples$group))
+```
+
+**Preview.** Once data are loaded, the right side shows the number of rows, columns,
+missing cells and subjects, the type of each column, the first rows, and a suggested
+mapping of columns to roles.
+
+```{r}
+screenshot("data-preview", "Data preview with the suggested mapping.")
+```
+
+**ADaM data.** When the data look like a CDISC ADaM data set (ADSL, a BDS data set
+such as ADEFF or ADLB, or ADTTE), the app recognises it from the column names, offers
+filters for the parameter (`PARAMCD`), visit (`AVISIT`) and population flags
+(`SAFFL`, `ITTFL`, `EFFFL`), and suggests the usual mapping: `AVAL` or `CHG` as
+outcome, `TRT01P` or `TRTP` as group, `BASE` as covariate, and `AVAL` with `CNSR`
+(inverted to an event) for time-to-event data.
+
+**One row per subject.** stabilitest treats each row as one independent observation.
+If a subject appears on several rows, for example several visits, the app says so and
+does not run until filters leave one row per subject. Paired data in long layout are
+the exception.
+
+## 2. Question
+
+Choose the family of analysis by the question you want to ask, then the test within it.
+
+```{r}
+screenshot("step-question", "The Question step.", "40%")
+```
+
+```{r}
+tests <- vapply(families$id, \(f) {
+  t <- names(stv$stv_tests(f))
+  if (length(t)) paste(t, collapse = ", ") else "One model"
+}, character(1))
+md_table(data.frame(Family = families$label, Question = families$question, Tests = tests))
+```
+
+The app suggests a family from the data: a 0/1 outcome points to proportions, two
+measurement columns to a paired test.
+
+## 3. Map
+
+Tell the app which column plays which role. Only columns that fit a role are offered,
+and the same column cannot take two roles.
+
+```{r}
+screenshot("step-map", "The Map step for two groups.", "40%")
+```
+
+| Family | Roles |
+|---|---|
+| Two groups (continuous) | Outcome and group, then which level is group 1 and group 2. Paired tests take a first and second measurement instead. |
+| Two proportions | A 0/1 response and a group. |
+| Equivalence or non-inferiority | Outcome, group and levels, the margin, whether higher values are better and, for means, whether the measurements are paired. |
+| Linear model | Outcome, predictors (treatment and covariates), reference levels, and the term to test. |
+| Generalised linear model | Outcome (0/1 for binomial, counts for Poisson), predictors, an optional offset such as exposure time for Poisson, and the term. |
+| Cox model | Time, event (with an option for data coded the other way, such as `CNSR`), predictors and the term. |
+
+Effects are group 1 minus group 2. If something does not fit, for example an outcome
+with only two values in a t-test, the step says why and suggests the fitting family.
+
+## 4. Settings
+
+```{r}
+screenshot("step-settings", "Settings in Guided mode.", "40%")
+```
+
+```{r}
+md_table(data.frame(
+  Setting = c(
+    "Significance level (alpha)", "Bootstrap resamples", "Score weights", "Maximum removal",
+    "Influence threshold", "Seed", "Write an interpretation"
+  ),
+  Default = c(
+    format(defaults$alpha), format(defaults$n_boot),
+    paste(paste0(names(defaults$weights), " ", round(100 * defaults$weights), "%"), collapse = ", "),
+    paste0(round(100 * defaults$max_removal_pct), "% of observations"),
+    paste("change in p of", format(defaults$influential_threshold)), format(defaults$seed),
+    if (isTRUE(defaults$interpret)) "On" else "Off"
+  ),
+  `What it does` = c(
+    "The level at which the original analysis is called significant.",
+    "How many resamples the bootstrap draws. More is steadier and slower.",
+    "How the three components are weighted in the composite score; they add to 100%.",
+    "The most observations the worst-case search may remove.",
+    "How much a leave-one-out p-value must move for an observation to be flagged (two-group tests).",
+    "Makes resampling repeatable: the same seed gives the same result.",
+    "Asks stabilitest to write a text interpretation (two-group tests)."
+  ),
+  check.names = FALSE
+))
+```
+
+Guided mode shows the significance level and resamples; the other settings are in
+Expert mode. The profile may cap the number of resamples, and the default is lowered to
+that cap.
+
+**Validated Fisher settings.** For the Fisher exact test, a button applies the settings
+of the one validated calibration profile. With these settings, and data that
+stabilitest finds eligible, stabilitest returns a categorical label. The button sets the
+settings only: whether a label is returned is stabilitest's decision.
+
+## 5. Run
+
+Press **Run analysis**. The analysis runs in the background, so the app stays usable,
+and a run can be cancelled. For long runs the step shows an estimate of the time. If the
+setup has a problem, Run lists it instead of running.
+
+# Reading a result
+
+A result appears below the data, in three parts: the calibration banner, the score
+row, and, in Guided mode, a plain-language panel.
+
+```{r}
+screenshot("results-score", "The banner and score row of a result without a label.")
+```
+
+## The calibration banner
+
+The banner says whether stabilitest returned a categorical label.
+
+- **No categorical label** (grey). The method or setting has no validated cutoff. The
+  score and its parts are numbers to read, compare and discuss; a low or high score
+  is not called fragile or robust. A blank label is deliberate: it does not mean the
+  analysis failed.
+- **A label** (coloured). stabilitest returned a label under a validated calibration,
+  for example *Fragile* for a significant Fisher exact test under the validated
+  settings. Only then does the app use colour for the verdict.
+
+```{r}
+screenshot("results-label", "A result with a label returned by stabilitest.")
+```
+
+## The score row
+
+```{r}
+md_table(data.frame(
+  Box = c("Composite score", "Jackknife stability", "Removal fragility", "Bootstrap same-decision rate",
+    "Original p-value"),
+  Meaning = unlist(glossary[c("composite", "jackknife", "fragility", "bootstrap", "p_value")])
+))
+```
+
+Each component box shows its weight in the score. The line under the row writes out
+the score from the weights and components stabilitest returned, so you can see how it
+was formed. Every box has an info button with its definition.
+
+The removal fragility box also says after how many observations the decision changed,
+for example *Decision flips after removing 6 obs (10.9%)*. When the decision did not
+change within the maximum removal, it says so.
+
+## What does this mean?
+
+In Guided mode, a panel restates the result in plain sentences: the original decision,
+how many removals change it, how often leaving out one observation or resampling keeps
+it, and what can be said about the score. Each sentence repeats a number stabilitest
+returned. Without a label, the panel says that the score is not called fragile or
+robust.
+
+```{r}
+screenshot("results-meaning", "The plain-language panel in Guided mode.")
+```
+
+# Exploring a result
+
+Below the score, tabs show each part of the result in detail. In Expert mode the tabs
+open on Code.
+
+## Removal path
+
+The p-value after removing one, two, three and more observations, each time the one
+that moves the p-value furthest toward the other decision. The dashed horizontal line is
+alpha; a ring marks the step at which the decision changes. For two-group tests a
+second, dashed path removes the most extreme values instead, for comparison; it is not
+part of the score. Hover over a point to see which observation was removed.
+
+```{r}
+screenshot("tab-removal-path", "The Removal path tab.")
+```
+
+## Influence
+
+Each point is the p-value with one observation left out. The solid line is the original
+p-value, the dashed line alpha. Observations stabilitest flags as influential are
+marked. Click a point, or drag over several, to list their rows from the data below the
+plot. A selection here also ticks those observations in the Removed observations tab.
+
+```{r}
+screenshot("tab-influence", "The Influence tab.")
+```
+
+## Bootstrap
+
+The distribution of p-values across the bootstrap resamples, split into resamples that
+reach the same decision and those that do not. The share reaching the same decision is
+the bootstrap same-decision rate. It describes this data set; it is not the probability
+that a new study would repeat the result.
+
+```{r}
+screenshot("tab-bootstrap", "The Bootstrap tab.")
+```
+
+## Removed observations
+
+The observations the worst-case path removed, in order, with the p-value after each
+removal, whether the decision had changed, and the full row from the data. The step at
+which the decision changes is highlighted. Tick rows to ring them in the Influence plot.
+
+```{r}
+screenshot("tab-removed-observations", "The Removed observations tab.")
+```
+
+## Interpretation
+
+Text written by stabilitest for two-group tests when *Write an interpretation* is on:
+an overall statement, one paragraph per stress test, and a recommendation.
+
+## Code
+
+R code that reproduces the result outside the app: reading the data, the filters, the
+preparation and the stabilitest call, with the seed. A **Copy** button copies it.
+
+```{r}
+screenshot("tab-code", "The Code tab.")
+```
+
+# Comparing analyses
+
+Every analysis run in a session is kept. On the **Compare** page, tick the analyses to
+compare; the latest four are ticked to start. They appear side by side with the same
+rows as the report summary, and their worst-case removal paths are drawn on one plot. If
+the analyses were run on different data or different filters, a note says so, because
+their numbers are then not directly comparable. Analyses can be removed one by one or
+all at once. Nothing is kept after the session ends.
+
+```{r}
+screenshot("compare", "Three tests of the same data on the Compare page.")
+```
+
+# Exporting
+
+The **Export** tab of a result offers:
+
+| Export | Formats | Contents |
+|---|---|---|
+| Report | HTML, Word, PDF | The summary and calibration statement, the three plots, the removed and influential observations, the interpretation, the code and software versions. |
+| Plots | PNG, SVG | The removal path, influence or bootstrap plot, on a light background. |
+| Tables | XLSX (all), CSV (one) | The summary, metrics, removal paths, jackknife and bootstrap results, and the removed observations with their data rows. |
+| R script | `.R` | The code from the Code tab. |
+| Result | `.rds` | The object stabilitest returned, for further work in R. |
+
+The report needs Quarto on the machine running the app. If it is missing, the tab says
+so and the other exports still work.
+
+```{r}
+screenshot("tab-export", "The Export tab.")
+```
+
+# Guided and Expert modes
+
+| | Guided | Expert |
+|---|---|---|
+| Settings | Significance level and resamples | All settings |
+| Data filters | ADaM filters | ADaM filters and a free row filter |
+| Results | "What does this mean?" panel; tabs open on Removal path | No panel; tabs open on Code |
+
+Switch with the control at the top right. The public profile is always Guided.
+
+```{r}
+screenshot("step-settings-expert", "Settings in Expert mode.", "30%")
+```
+
+# Questions and answers
+
+**Why does my result have no label?** stabilitest has a validated calibration for one
+setting today (the Fisher exact test, significant, under the validated settings). For
+every other method the score is reported as a number. This is deliberate.
+
+**Is a score of 30 fragile?** Without a label, the app and stabilitest do not say. Read
+the components: after how many removals the decision changes, and how often
+resampling keeps it. Comparing analyses of the same data on the Compare page can help.
+
+**Why will the analysis not run?** The Run step lists the reason, for example more than
+one row per subject, a column used in two roles, or more resamples than the profile
+allows.
+
+**Why do two runs give slightly different bootstrap numbers?** They used different
+seeds. With the same seed and settings, results are identical.
+
+**Does the bootstrap same-decision rate tell me whether the trial will replicate?** No.
+It describes how stable the decision is in resamples of this data set.
+
+**Where are my analyses stored?** Only in your browser session, until it closes.
+
+# Glossary
+
+```{r}
+md_table(data.frame(
+  Term = c("Composite score", "Jackknife stability", "Removal fragility", "Bootstrap same-decision rate",
+    "Original p-value", "Calibration", "Fail-closed"),
+  Definition = c(
+    unlist(glossary[c("composite", "jackknife", "fragility", "bootstrap", "p_value")]),
+    "Evidence, from simulation studies, that a score cutoff separates fragile from robust results for a method and setting.",
+    "When no validated calibration applies, no label is shown and the score stays a number."
+  )
+))
+```
