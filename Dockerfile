@@ -32,8 +32,8 @@ RUN R -q -e 'pak::local_install_deps(upgrade = FALSE)'
 
 COPY . .
 RUN R -q -e 'pak::local_install(upgrade = FALSE, dependencies = FALSE)' \
-  && rm -rf /build /tmp/* \
-  && R -q -e 'pak::cache_clean()'
+  && R -q -e 'pak::cache_clean()' \
+  && cd / && rm -rf /build /tmp/*
 
 RUN useradd --create-home --shell /bin/bash app
 USER app
