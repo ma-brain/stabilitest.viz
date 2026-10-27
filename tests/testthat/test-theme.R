@@ -52,3 +52,22 @@ test_that("text colours meet WCAG AA contrast in both themes", {
     }
   }
 })
+
+test_that("the markup keeps the accessibility fixes found with axe-core", {
+  # One level-one heading for the app, and the script that fixes bslib markup
+  expect_match(as.character(app_ui(NULL, profile = "default")), '<h1 class="visually-hidden">stabilitest.viz</h1>',
+    fixed = TRUE)
+  expect_match(as.character(shiny::tagList(golem_add_external_resources()$children)), "www/stv-a11y.js", fixed = TRUE)
+  expect_true(file.exists(app_sys("app", "www", "stv-a11y.js")))
+
+  # Scrolling tables can be reached and are named
+  table <- as.character(stv_html_table(data.frame(a = 1), caption = "Versions"))
+  expect_match(table, 'tabindex="0"', fixed = TRUE)
+  expect_match(table, 'aria-label="Versions"', fixed = TRUE)
+
+  # Export selects have labels for screen readers
+  export <- as.character(stv_export_ui(shiny::NS("x")))
+  for (label in c("Report format", "Plot", "Table")) {
+    expect_match(export, sprintf('<span class="visually-hidden">%s</span>', label), fixed = TRUE)
+  }
+})

@@ -99,7 +99,7 @@ mod_compare_server <- function(id, store) {
           "Each column is one analysis, with the numbers stabilitest returned for it. A label appears only where stabilitest returned one."
         ),
         reactable::reactableOutput(ns("table")),
-        shiny::tags$h3(class = "stv-section-title mt-3", "Removal paths"),
+        shiny::tags$h2(class = "stv-section-title mt-3", "Removal paths"),
         plotly::plotlyOutput(ns("paths"), height = "360px")
       )
     })

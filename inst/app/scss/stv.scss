@@ -802,3 +802,17 @@ pre,
   --bs-btn-active-bg: var(--stv-muted);
   --bs-btn-disabled-color: var(--stv-muted);
 }
+
+// reactable dims its page info to 0.9 opacity, which takes the muted text
+// below 4.5:1 contrast
+.stv-reactable .rt-page-info {
+  opacity: 1;
+}
+
+// The mode and theme switches, moved out of the tab list by stv-a11y.js
+.stv-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}

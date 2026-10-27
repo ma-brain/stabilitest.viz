@@ -277,7 +277,7 @@ stv_export_ui <- function(ns) {
     class = "btn-sm btn-outline-primary", icon = bsicons::bs_icon(icon, a11y = "deco"))
   group <- \(title, text, ...) shiny::tags$div(
     class = "stv-export-group",
-    shiny::tags$h3(class = "stv-section-title", title),
+    shiny::tags$h2(class = "stv-section-title", title),
     shiny::tags$p(class = "stv-tab-intro", text),
     shiny::tags$div(class = "d-flex flex-wrap align-items-end gap-2", ...)
   )
@@ -287,7 +287,7 @@ stv_export_ui <- function(ns) {
       "Report", "The verdict, the three plots, the removed observations, stabilitest's interpretation, the code and software versions.",
       if (stv_can_render_report()) {
         shiny::tagList(
-          shiny::selectInput(ns("report_format"), NULL, c(HTML = "html", Word = "docx", PDF = "pdf"), width = "130px"),
+          shiny::selectInput(ns("report_format"), stv_hidden_label("Report format"), c(HTML = "html", Word = "docx", PDF = "pdf"), width = "130px"),
           download("report", "Download report", "file-earmark-text")
         )
       } else {
@@ -296,7 +296,7 @@ stv_export_ui <- function(ns) {
     ),
     group(
       "Plots", "As shown in the explorer, with a light background.",
-      shiny::selectInput(ns("plot_which"), NULL,
+      shiny::selectInput(ns("plot_which"), stv_hidden_label("Plot"),
         c(`Removal path` = "removal", Influence = "influence", Bootstrap = "bootstrap"), width = "170px"),
       download("plot_png", "PNG", "image"),
       download("plot_svg", "SVG", "filetype-svg")
@@ -304,7 +304,7 @@ stv_export_ui <- function(ns) {
     group(
       "Tables", "The tables stabilitest returned, the summary and the removed observations with their data rows.",
       download("tables_xlsx", "All tables (XLSX)", "file-earmark-spreadsheet"),
-      shiny::selectInput(ns("table_which"), NULL, c(
+      shiny::selectInput(ns("table_which"), stv_hidden_label("Table"), c(
         Summary = "summary", Metrics = "metrics", `Removal path` = "removal_path", Jackknife = "jackknife",
         Bootstrap = "bootstrap", `Removed observations` = "removed_observations"
       ), width = "200px"),
@@ -450,7 +450,7 @@ stv_interpretation_ui <- function(result) {
     shiny::tags$p(class = "stv-tab-intro", "Text written by stabilitest for this result."),
     lapply(names(parts), \(nm) shiny::tags$div(
       class = "stv-interpretation",
-      shiny::tags$h3(class = "stv-section-title", parts[[nm]]),
+      shiny::tags$h2(class = "stv-section-title", parts[[nm]]),
       shiny::tags$p(text[[nm]])
     ))
   )
@@ -474,7 +474,11 @@ stv_code_block <- function(result) {
         bsicons::bs_icon("clipboard", a11y = "deco"), " Copy"
       )
     ),
-    shiny::HTML(paste0("<pre class=\"stv-code\"><code>", stv_escape_html(result@code), "</code></pre>"))
+    # The block scrolls, so it is focusable and named for keyboard users
+    shiny::HTML(paste0(
+      "<pre class=\"stv-code\" tabindex=\"0\" aria-label=\"Generated R code\"><code>",
+      stv_escape_html(result@code), "</code></pre>"
+    ))
   )
 }
 

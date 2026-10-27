@@ -17,7 +17,11 @@ app_ui <- function(request, profile = NULL) {
     window_title = "stabilitest.viz",
     lang = "en",
     fillable = FALSE,
-    header = golem_add_external_resources(),
+    # One level-one heading for the whole app; each page starts at level two
+    header = shiny::tagList(
+      golem_add_external_resources(),
+      shiny::tags$h1(class = "visually-hidden", "stabilitest.viz")
+    ),
     bslib::nav_panel("Analyse", value = "analyse", icon = bsicons::bs_icon("activity"), mod_analyse_ui("analyse", public)),
     bslib::nav_panel("Compare", value = "compare", icon = bsicons::bs_icon("layout-split"), mod_compare_ui("compare")),
     bslib::nav_panel("Learn", value = "learn", icon = bsicons::bs_icon("book"), mod_learn_ui()),
@@ -61,7 +65,8 @@ stv_navbar_title <- function() {
 
 #' Add external resources to the app
 #'
-#' Registers `inst/app/www` and adds the favicon and apple-touch icon.
+#' Registers `inst/app/www` and adds the favicon, the apple-touch icon and the
+#' accessibility fixes for bslib markup (`stv-a11y.js`).
 #'
 #' @return A `shiny::tags` `head`.
 #' @noRd
@@ -72,6 +77,7 @@ golem_add_external_resources <- function() {
     shiny::tags$link(rel = "icon", type = "image/svg+xml", href = "www/favicon.svg"),
     shiny::tags$link(rel = "icon", type = "image/png", sizes = "32x32", href = "www/favicon-32.png"),
     shiny::tags$link(rel = "apple-touch-icon", sizes = "180x180", href = "www/favicon-180.png"),
-    shiny::tags$meta(name = "description", content = "Interactive companion to the stabilitest R package.")
+    shiny::tags$meta(name = "description", content = "Interactive companion to the stabilitest R package."),
+    shiny::tags$script(src = "www/stv-a11y.js")
   )
 }

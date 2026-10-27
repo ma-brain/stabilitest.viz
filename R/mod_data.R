@@ -389,11 +389,11 @@ stv_data_preview_card <- function(data, label, id, labels = NULL, adam = NULL,
         col_widths = c(5, 7),
         fill = FALSE,
         shiny::tags$div(
-          shiny::tags$h3(class = "stv-section-title", "Columns"),
+          shiny::tags$h2(class = "stv-section-title", "Columns"),
           column_table
         ),
         shiny::tags$div(
-          shiny::tags$h3(class = "stv-section-title", "First rows"),
+          shiny::tags$h2(class = "stv-section-title", "First rows"),
           stv_html_table(preview, caption = "First rows of the loaded data")
         )
       ),
@@ -446,7 +446,7 @@ stv_suggestion_block <- function(suggestion, adam) {
 
   shiny::tags$div(
     class = "mt-3",
-    shiny::tags$h3(class = "stv-section-title", "Suggested mapping"),
+    shiny::tags$h2(class = "stv-section-title", "Suggested mapping"),
     if (nrow(suggestion)) {
       stv_html_table(
         tibble::tibble(Role = suggestion$role, Column = suggestion$column, Note = suggestion$note),

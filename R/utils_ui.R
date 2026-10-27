@@ -95,8 +95,12 @@ stv_html_table <- function(data, caption) {
     shiny::tags$tr(cells)
   })
 
+  # The wrapper scrolls, so it is focusable and named for keyboard users
   shiny::tags$div(
     class = "stv-table-wrap",
+    tabindex = "0",
+    role = "region",
+    `aria-label` = caption,
     shiny::tags$table(
       class = "table table-sm table-hover align-middle",
       shiny::tags$caption(class = "visually-hidden", caption),
@@ -127,4 +131,17 @@ stv_learn_card <- function(title, icon, question, ...) {
       ...
     )
   )
+}
+
+#' Input label read by screen readers only
+#'
+#' For inputs whose purpose is clear from the surrounding text. A `NULL` label
+#' would leave the input unnamed.
+#'
+#' @param text The label.
+#'
+#' @return A `shiny::tags` span.
+#' @noRd
+stv_hidden_label <- function(text) {
+  shiny::tags$span(class = "visually-hidden", text)
 }
