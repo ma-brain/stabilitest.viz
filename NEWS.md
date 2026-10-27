@@ -1,3 +1,8 @@
+# stabilitest.viz (development version)
+
+* Requires stabilitest 0.6.6, which names the observations removed at each
+  step of the two-group removal paths.
+
 # stabilitest.viz 0.1.0
 
 First release: the data layer and the analysis engine (milestones M0 to M2 of
