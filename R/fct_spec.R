@@ -143,6 +143,63 @@ stv_estimate_runtime <- function(spec, n) {
   rate * (n + spec$settings$n_boot) * max(n / 100, 1)
 }
 
+#' Columns by the roles they can take
+#'
+#' Used both to fill the Map choices and to check a spec, so the two agree.
+#' Only the type and structure of a column are looked at, never its values'
+#' statistics.
+#'
+#' @param data A data frame.
+#' @param ids Columns known to identify subjects (from the suggested mapping).
+#'
+#' @return A list of column-name vectors:
+#'   * `all`: every column.
+#'   * `id`: identifiers: `ids`, plus text columns with a different value on
+#'     every row.
+#'   * `constant`: a single value (or none).
+#'   * `numeric`: numeric, not an identifier.
+#'   * `binary`: 0/1 or logical.
+#'   * `measure`: numeric with more than two values, not an identifier: a
+#'     continuous outcome or measurement.
+#'   * `response`: can be read as response / no response: 0/1, two numeric
+#'     values, or a text column with 2 to 20 values.
+#'   * `group`: can split rows into groups: text, 0/1, or up to 8 numeric
+#'     values; not an identifier.
+#'   * `count`: non-negative whole numbers.
+#'   * `positive`: numeric, every value above 0.
+#'   * `nonnegative`: numeric, every value at least 0.
+#'   * `predictor`: neither an identifier nor constant.
+#' @noRd
+stv_column_kinds <- function(data, ids = character()) {
+  present <- lapply(data, \(x) x[!is.na(x)])
+  n_unique <- vapply(present, \(x) length(unique(x)), integer(1))
+  n_present <- lengths(present)
+  is_num <- vapply(data, is.numeric, logical(1))
+  is_text <- vapply(data, \(x) is.character(x) || is.factor(x), logical(1))
+  is_binary <- vapply(present, \(x) {
+    (is.numeric(x) || is.logical(x)) && length(x) > 0L && all(x %in% c(0, 1))
+  }, logical(1))
+  all_values <- \(test) vapply(present, \(x) is.numeric(x) && length(x) > 0L && all(test(x)), logical(1))
+  is_id <- names(data) %in% ids | (is_text & n_unique == n_present & n_present > 2L)
+  is_const <- n_unique <= 1L
+  cols <- \(keep) names(data)[keep]
+
+  list(
+    all = names(data),
+    id = cols(is_id),
+    constant = cols(is_const),
+    numeric = cols(is_num & !is_id),
+    binary = cols(is_binary),
+    measure = cols(is_num & !is_binary & n_unique > 2L & !is_id),
+    response = cols(!is_id & (is_binary | (is_num & n_unique == 2L) | (is_text & n_unique >= 2L & n_unique <= 20L))),
+    group = cols(!is_id & (is_text & n_unique >= 2L | is_binary | (n_unique >= 2L & n_unique <= 8L))),
+    count = cols(!is_id & all_values(\(x) x >= 0 & x == round(x))),
+    positive = cols(!is_id & all_values(\(x) x > 0)),
+    nonnegative = cols(!is_id & all_values(\(x) x >= 0)),
+    predictor = cols(!is_id & !is_const)
+  )
+}
+
 #' Check a spec against the data
 #'
 #' @param spec An analysis spec, see `stv_spec_new()`.
@@ -185,8 +242,10 @@ stv_validate_spec <- function(spec, data, max_n_boot = Inf, checks = NULL) {
     add("The seed must be a number.")
   }
 
+  kinds <- stv_column_kinds(data)
+  is_set <- \(col) !is.null(col) && length(col) == 1L && !is.na(col) && nzchar(col)
   has_col <- function(col, what) {
-    if (is.null(col) || !length(col) || is.na(col) || !nzchar(col)) {
+    if (!is_set(col)) {
       add("Choose the ", what, ".")
       return(FALSE)
     }
@@ -196,30 +255,64 @@ stv_validate_spec <- function(spec, data, max_n_boot = Inf, checks = NULL) {
     }
     TRUE
   }
-  needs_numeric <- function(col, what) {
-    if (has_col(col, what) && !is.numeric(data[[col]])) {
-      add("The ", what, " '", col, "' must be numeric.")
+  not_id <- function(col, what) {
+    if (col %in% kinds$id) {
+      add("'", col, "' identifies subjects (a different value on every row), so it cannot be the ", what, ".")
+      return(FALSE)
+    }
+    TRUE
+  }
+  # Each column may play one role only
+  distinct_roles <- function(roles) {
+    roles <- roles[vapply(roles, is_set, logical(1))]
+    dup <- unique(unlist(roles)[duplicated(unlist(roles))])
+    for (col in dup) {
+      add("'", col, "' is used as both the ", paste(names(roles)[unlist(roles) == col], collapse = " and the "), ".")
     }
   }
-  needs_binary <- function(col, what, success = NULL) {
-    if (!has_col(col, what)) return()
+  needs_measure <- function(col, what, binary_hint) {
+    if (!has_col(col, what) || !not_id(col, what)) return()
+    if (!is.numeric(data[[col]])) {
+      add("The ", what, " '", col, "' must be numeric.")
+    } else if (col %in% kinds$binary) {
+      add("The ", what, " '", col, "' only takes the values 0 and 1. ", binary_hint)
+    } else if (!col %in% kinds$measure) {
+      add("The ", what, " '", col, "' has fewer than three different values, so it is not a measurement.")
+    }
+  }
+  needs_response <- function(col, what, success = NULL) {
+    if (!has_col(col, what) || !not_id(col, what)) return()
     x <- data[[col]]
     x <- x[!is.na(x)]
-    if (!is.null(success) && nzchar(success)) {
+    if (!col %in% kinds$response) {
+      add(
+        "The ", what, " '", col, "' is not a response: it needs 0/1 values or a few categories. ",
+        "For a measurement, use Compare two groups (continuous)."
+      )
+    } else if (is_set(success)) {
       if (!success %in% as.character(x)) add("The success value '", success, "' does not occur in '", col, "'.")
-    } else if (!(is.numeric(x) || is.logical(x)) || !all(x %in% c(0, 1))) {
-      add("The ", what, " '", col, "' must be 0/1 or logical, or pick which value counts as success.")
+    } else if (!col %in% kinds$binary) {
+      add("Pick which value of '", col, "' counts as a response.")
     }
   }
 
-  group_cols <- function() {
-    if (!has_col(spec$group, "group column")) return(invisible())
+  group_cols <- function(outcome) {
+    if (!has_col(spec$group, "group column") || !not_id(spec$group, "group column")) return(invisible())
+    if (!spec$group %in% kinds$group) {
+      add("'", spec$group, "' has too many different values to define groups.")
+      return(invisible())
+    }
     lv <- spec$levels
     present <- unique(as.character(stats::na.omit(data[[spec$group]])))
     if (length(lv) != 2L || anyDuplicated(lv) || anyNA(lv)) {
       add("Pick two different groups to compare.")
     } else if (!all(lv %in% present)) {
       add("The groups to compare are not both present in '", spec$group, "'.")
+    } else if (is_set(outcome) && outcome %in% names(data)) {
+      for (level in lv) {
+        rows <- as.character(data[[spec$group]]) %in% level
+        if (!any(!is.na(data[[outcome]][rows]))) add("Group '", level, "' has no rows with a value for '", outcome, "'.")
+      }
     }
   }
 
@@ -228,19 +321,29 @@ stv_validate_spec <- function(spec, data, max_n_boot = Inf, checks = NULL) {
     paired <- spec$family == "location" && spec$test %in% c("paired.t.test", "wilcoxon.paired") ||
       spec$family == "tost" && isTRUE(spec$paired)
     layout <- spec$paired_layout %||% "wide"
+    binary_hint <- if (spec$family == "tost") {
+      "Use the risk difference or odds ratio endpoint."
+    } else {
+      "Use Compare two proportions."
+    }
 
     if (paired && layout == "wide") {
-      needs_numeric(spec$outcome, "first measurement")
-      needs_numeric(spec$outcome2, "second measurement")
-      if (!is.null(spec$outcome) && identical(spec$outcome, spec$outcome2)) {
+      needs_measure(spec$outcome, "first measurement", "Paired tests here need measurements, not 0/1 values.")
+      needs_measure(spec$outcome2, "second measurement", "Paired tests here need measurements, not 0/1 values.")
+      if (is_set(spec$outcome) && identical(spec$outcome, spec$outcome2)) {
         add("The two measurements must be different columns.")
       }
     } else {
-      if (endpoint_binary) needs_binary(spec$outcome, "outcome", spec$success) else needs_numeric(spec$outcome, "outcome")
-      group_cols()
+      if (endpoint_binary) {
+        needs_response(spec$outcome, "outcome", spec$success)
+      } else {
+        needs_measure(spec$outcome, "outcome", binary_hint)
+      }
+      distinct_roles(list(outcome = spec$outcome, `group column` = spec$group, `pair identifier` = if (paired) spec$pair_id))
+      if (!identical(spec$outcome, spec$group)) group_cols(spec$outcome)
       if (paired && has_col(spec$pair_id, "pair identifier")) {
         lv <- spec$levels
-        ok_cols <- !is.null(spec$group) && spec$group %in% names(data)
+        ok_cols <- is_set(spec$group) && spec$group %in% names(data)
         if (ok_cols && length(lv) == 2L) {
           rows <- data[[spec$group]] %in% lv
           ids <- split(data[[spec$pair_id]][rows], data[[spec$group]][rows])
@@ -265,36 +368,63 @@ stv_validate_spec <- function(spec, data, max_n_boot = Inf, checks = NULL) {
       if (identical(spec$test, "or") && is.numeric(spec$margin) && length(spec$margin) == 1L && !asym && spec$margin <= 1) {
         add("An odds-ratio margin must be above 1.")
       }
+      if (identical(spec$test, "prop") && is.numeric(spec$margin) && length(spec$margin) == 1L && !asym && spec$margin >= 1) {
+        add("A risk-difference margin is a difference in proportions, so it must be below 1.")
+      }
     }
   } else {
-    if (has_col(spec$outcome, "outcome")) {
-      y <- data[[spec$outcome]]
-      if (spec$family == "lm" && !is.numeric(y)) add("The outcome '", spec$outcome, "' must be numeric.")
-      if (spec$family == "glm" && identical(spec$test, "binomial")) needs_binary(spec$outcome, "outcome")
-      if (spec$family == "glm" && identical(spec$test, "poisson") &&
-        (!is.numeric(y) || any(y < 0, na.rm = TRUE) || any(y != round(y), na.rm = TRUE))) {
-        add("A count outcome must be non-negative whole numbers.")
-      }
-    }
     if (spec$family == "cox") {
-      needs_numeric(spec$time, "time column")
-      if (has_col(spec$event, "event column")) {
+      if (has_col(spec$time, "time column") && not_id(spec$time, "time column")) {
+        if (!spec$time %in% kinds$positive) add("The time column '", spec$time, "' must be numeric with every value above 0.")
+      }
+      if (has_col(spec$event, "event column") && not_id(spec$event, "event column")) {
         ev <- data[[spec$event]]
-        if (!(is.numeric(ev) || is.logical(ev)) || !all(ev[!is.na(ev)] %in% c(0, 1))) {
+        if (!spec$event %in% kinds$binary) {
           add("The event column '", spec$event, "' must be 0/1.")
+        } else {
+          events <- if (isTRUE(spec$event_invert)) 1 - ev else ev
+          if (!any(events == 1, na.rm = TRUE)) add("The event column '", spec$event, "' records no events.")
         }
       }
+    } else if (has_col(spec$outcome, "outcome") && not_id(spec$outcome, "outcome")) {
+      if (spec$family == "lm") {
+        needs_measure(spec$outcome, "outcome", "Use Generalised linear model with Binomial (logit).")
+      } else if (identical(spec$test, "binomial") && !spec$outcome %in% kinds$binary) {
+        add("A binomial outcome must be 0/1. '", spec$outcome, "' is not.")
+      } else if (identical(spec$test, "poisson") && !spec$outcome %in% kinds$count) {
+        add("A count outcome must be non-negative whole numbers. '", spec$outcome, "' is not.")
+      }
     }
+
     preds <- spec$predictors
     if (!length(preds)) {
       add("Choose at least one predictor.")
     } else if (!all(preds %in% names(data))) {
       add("A predictor is not in the data.")
+    } else {
+      for (col in intersect(preds, kinds$id)) {
+        add("'", col, "' identifies subjects, so it cannot be a predictor.")
+      }
+      for (col in intersect(preds, kinds$constant)) {
+        add("The predictor '", col, "' has a single value, so it has no effect to estimate.")
+      }
     }
-    for (col in c(spec$offset, spec$obs_weights)) {
-      if (!is.null(col) && nzchar(col) && !col %in% names(data)) add("Column '", col, "' is not in the data.")
+    offset <- if (is_set(spec$offset)) spec$offset
+    weights <- if (is_set(spec$obs_weights)) spec$obs_weights
+    if (!is.null(offset) && spec$family != "glm") add("An offset is only used for generalised linear models.")
+    if (!is.null(offset) && has_col(offset, "exposure column") && !offset %in% kinds$positive) {
+      add("The exposure column '", offset, "' must be above 0 on every row (its log is the offset).")
     }
-    if (!is.null(spec$offset) && nzchar(spec$offset) && !spec$family == "glm") add("An offset is only used for generalised linear models.")
+    if (!is.null(weights) && has_col(weights, "weights column") && !weights %in% kinds$nonnegative) {
+      add("Observation weights in '", weights, "' must be numeric and at least 0.")
+    }
+    roles <- list(outcome = spec$outcome, `time column` = spec$time, `event column` = spec$event,
+      `exposure column` = offset, `weights column` = weights)
+    distinct_roles(roles)
+    for (col in intersect(preds, unlist(roles[vapply(roles, is_set, logical(1))]))) {
+      add("'", col, "' cannot be a predictor and also the ", names(roles)[vapply(roles, \(r) identical(r, col), logical(1))][[1]], ".")
+    }
+
     if (!length(spec$term) || is.na(spec$term) || !nzchar(spec$term)) {
       add("Choose the model term to test.")
     } else if (length(preds) && all(preds %in% names(data)) &&

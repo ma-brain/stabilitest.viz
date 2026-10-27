@@ -12,30 +12,6 @@ mod_map_ui <- function(id) {
   )
 }
 
-#' Columns by kind
-#'
-#' @param data A data frame.
-#'
-#' @return A list of column-name vectors: `all`, `numeric`, `binary`, `group`.
-#'   `group` leaves out columns whose values are all different, such as IDs.
-#' @noRd
-stv_column_kinds <- function(data) {
-  is_binary <- vapply(data, \(x) {
-    (is.numeric(x) || is.logical(x)) && length(unique(x[!is.na(x)])) > 0L && all(x[!is.na(x)] %in% c(0, 1))
-  }, logical(1))
-  n_unique <- vapply(data, \(x) length(unique(x[!is.na(x)])), integer(1))
-  n_present <- vapply(data, \(x) sum(!is.na(x)), integer(1))
-  is_text <- vapply(data, \(x) is.character(x) || is.factor(x), logical(1))
-  # A column where every value is different (a subject ID) cannot define groups
-  is_id <- n_unique == n_present & n_present > 2L
-  list(
-    all = names(data),
-    numeric = names(data)[vapply(data, is.numeric, logical(1))],
-    binary = names(data)[is_binary],
-    group = names(data)[!is_id & (is_text & n_unique >= 2L | is_binary | (n_unique >= 2L & n_unique <= 8L))]
-  )
-}
-
 #' Pick a value that is still valid
 #'
 #' @param current The current input value.
@@ -88,16 +64,25 @@ mod_map_server <- function(id, store, family) {
           )
         )
       }
-      kinds <- stv_column_kinds(data)
       suggested <- shiny::isolate(list(
         outcome = role_col("Outcome"), group = role_col("Group"), time = role_col("Time"),
         event = role_col("Event"), covariates = role_col("Covariate"), id = role_col("Subject")
       ))
+      # Each role offers only the columns that fit it; validation applies the
+      # same rules
+      kinds <- stv_column_kinds(data, ids = suggested$id)
       keep <- function(x) shiny::isolate(x)
+      # A select, with a note when no column fits the role
+      role <- function(inputId, label, choices, selected, why) {
+        shiny::tagList(
+          select(inputId, label, choices, selected),
+          if (!length(choices)) shiny::tags$p(class = "small text-body-secondary", why)
+        )
+      }
 
       if (fam$family %in% c("location", "proportion", "tost")) {
         binary <- fam$family == "proportion" || (fam$family == "tost" && fam$test %in% c("prop", "or"))
-        outcome_choices <- if (binary) kinds$all else kinds$numeric
+        outcome_choices <- if (binary) kinds$response else kinds$measure
         paired <- is_paired(fam)
         layout <- input$layout %||% "wide"
 
@@ -113,7 +98,7 @@ mod_map_server <- function(id, store, family) {
           )
         }
         if (paired && identical(layout, "wide")) {
-          pair_choices <- setdiff(kinds$numeric, suggested$id)
+          pair_choices <- kinds$measure
           # Keep the user's pair only if it is two different columns; an
           # outcome left over from the unpaired layout must not fill both
           first <- keep(input$outcome)
@@ -122,16 +107,26 @@ mod_map_server <- function(id, store, family) {
             first <- pair_choices[1]
             second <- if (length(pair_choices) > 1L) pair_choices[[2]] else ""
           }
-          controls$outcome <- select("outcome", "First measurement", pair_choices, first)
+          controls$outcome <- role("outcome", "First measurement", pair_choices, first,
+            "No numeric measurement column (with more than two values) in these data.")
           controls$outcome2 <- select("outcome2", "Second measurement", pair_choices, second)
         } else {
-          controls$outcome <- select(
-            "outcome", if (binary) "Outcome (response)" else "Outcome", outcome_choices,
-            stv_pick(keep(input$outcome), outcome_choices, suggested$outcome)
+          # The outcome and the group are different columns
+          group_now <- stv_pick(keep(input$group), kinds$group, suggested$group)
+          outcome_choices <- setdiff(outcome_choices, group_now)
+          outcome_now <- stv_pick(keep(input$outcome), outcome_choices, suggested$outcome)
+          group_choices <- setdiff(kinds$group, outcome_now)
+          controls$outcome <- role(
+            "outcome", if (binary) "Outcome (response)" else "Outcome", outcome_choices, outcome_now,
+            if (binary) {
+              "No column can be read as a response (0/1 or a few categories). For a measurement, choose Compare two groups (continuous)."
+            } else {
+              "No numeric measurement column (more than two values). For a 0/1 outcome, choose Compare two proportions."
+            }
           )
           controls$success <- shiny::uiOutput(ns("success_ui"))
-          controls$group <- select("group", "Group", kinds$group, stv_pick(keep(input$group), kinds$group, suggested$group))
-          if (!length(kinds$group)) {
+          controls$group <- select("group", "Group", group_choices, stv_pick(keep(input$group), group_choices, suggested$group))
+          if (!length(group_choices)) {
             controls$no_group <- shiny::tags$p(
               class = "small text-body-secondary",
               "No column here can split the rows into groups. For before and after measurements in two columns, choose a paired test in the Question step."
@@ -139,7 +134,8 @@ mod_map_server <- function(id, store, family) {
           }
           controls$levels <- shiny::uiOutput(ns("levels_ui"))
           if (paired) {
-            controls$pair_id <- select("pair_id", "Pair identifier", kinds$all, stv_pick(keep(input$pair_id), kinds$all, suggested$id))
+            pair_choices <- setdiff(kinds$all, kinds$constant)
+            controls$pair_id <- select("pair_id", "Pair identifier", pair_choices, stv_pick(keep(input$pair_id), pair_choices, suggested$id))
           }
         }
         if (fam$family == "proportion" && fam$test %in% c("chisq", "prop")) {
@@ -154,31 +150,40 @@ mod_map_server <- function(id, store, family) {
       # Models --------------------------------------------------------------
       controls <- list()
       if (fam$family == "cox") {
-        controls$time <- select("time", "Time", kinds$numeric, stv_pick(keep(input$time), kinds$numeric, suggested$time))
+        controls$time <- role("time", "Time", kinds$positive, stv_pick(keep(input$time), kinds$positive, suggested$time),
+          "No numeric column with every value above 0 to use as follow-up time.")
         event_choices <- kinds$binary
-        controls$event <- select("event", "Event", event_choices, stv_pick(keep(input$event), event_choices, suggested$event))
+        controls$event <- role("event", "Event", event_choices, stv_pick(keep(input$event), event_choices, suggested$event),
+          "No 0/1 column to use as the event indicator.")
         controls$invert <- shiny::checkboxInput(
           ns("invert"), "Event is coded the other way (event = 1 - column, e.g. CNSR)",
           keep(input$invert) %||% any(grepl("1 - ", store$suggestion$note[store$suggestion$role == "Event"], fixed = TRUE))
         )
       } else {
-        outcome_choices <- if (fam$family == "glm" && identical(fam$test, "binomial")) kinds$binary else kinds$numeric
-        controls$outcome <- select("outcome", "Outcome", outcome_choices, stv_pick(keep(input$outcome), outcome_choices, suggested$outcome))
+        outcome_choices <- switch(fam$test %||% "", binomial = kinds$binary, poisson = kinds$count, kinds$measure)
+        controls$outcome <- role(
+          "outcome", "Outcome", outcome_choices, stv_pick(keep(input$outcome), outcome_choices, suggested$outcome),
+          switch(fam$test %||% "",
+            binomial = "No 0/1 column to use as a binomial outcome.",
+            poisson = "No column of non-negative whole numbers to use as a count.",
+            "No numeric measurement column (more than two values). For a 0/1 outcome, choose Generalised linear model."
+          )
+        )
       }
       predictor_default <- unique(c(suggested$group, suggested$covariates))
-      predictor_choices <- setdiff(kinds$all, c(input$outcome, input$time, input$event))
+      predictor_choices <- setdiff(kinds$predictor, c(input$outcome, input$time, input$event, input$offset, input$obs_weights))
       controls$predictors <- select(
         "predictors", "Predictors (treatment and covariates)", predictor_choices,
         if (length(keep(input$predictors))) keep(input$predictors) else intersect(predictor_default, predictor_choices),
         multiple = TRUE
       )
       if (fam$family == "glm" && identical(fam$test, "poisson")) {
-        controls$offset <- select("offset", "Exposure column (offset = log of it)", c("None" = "", kinds$numeric), keep(input$offset) %||% "")
+        controls$offset <- select("offset", "Exposure column (offset = log of it)", c("None" = "", kinds$positive), keep(input$offset) %||% "")
       }
       controls$term <- shiny::uiOutput(ns("term_ui"))
       if (identical(store$mode, "expert")) {
         controls$weights <- if (fam$family %in% c("glm", "cox")) {
-          select("obs_weights", "Observation weights (optional)", c("None" = "", kinds$numeric), keep(input$obs_weights) %||% "")
+          select("obs_weights", "Observation weights (optional)", c("None" = "", kinds$nonnegative), keep(input$obs_weights) %||% "")
         }
         controls$reference <- shiny::uiOutput(ns("reference_ui"))
       }
@@ -193,8 +198,7 @@ mod_map_server <- function(id, store, family) {
       if (!binary || is.null(data) || !length(outcome) || !outcome %in% names(data)) {
         return(NULL)
       }
-      kinds <- stv_column_kinds(data)
-      if (outcome %in% kinds$binary) {
+      if (outcome %in% stv_column_kinds(data)$binary) {
         return(NULL)
       }
       values <- sort(unique(as.character(stats::na.omit(data[[outcome]]))))
