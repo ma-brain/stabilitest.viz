@@ -33,7 +33,12 @@ mod_results_server <- function(id, store) {
       if (is.null(result)) {
         return(mod_results_placeholder_ui())
       }
-      shiny::tagList(stv_results_card(result), stv_explorer_ui(ns, result))
+      expert <- identical(store$mode, "expert")
+      shiny::tagList(
+        stv_results_card(result),
+        if (!expert) stv_meaning_ui(result),
+        stv_explorer_ui(ns, result, selected = if (expert) "Code" else "Removal path")
+      )
     })
 
     output$removal_plot <- plotly::renderPlotly({
@@ -148,6 +153,25 @@ mod_results_server <- function(id, store) {
   })
 }
 
+#' "What does this mean?" panel for Guided mode
+#'
+#' @param result An `stv_result`.
+#'
+#' @return A `bslib::card()`.
+#' @noRd
+stv_meaning_ui <- function(result) {
+  bslib::card(
+    class = "stv-meaning",
+    bslib::card_header(
+      shiny::tags$span(class = "stv-learn-icon", bsicons::bs_icon("chat-square-text", a11y = "deco")),
+      "What does this mean?"
+    ),
+    bslib::card_body(
+      shiny::tags$ul(class = "stv-meaning-list", lapply(stv_meaning_text(result), shiny::tags$li))
+    )
+  )
+}
+
 #' Read a plotly event
 #'
 #' plotly warns, after every update, about events read before their plot has
@@ -172,14 +196,17 @@ stv_plotly_event <- function(event, source, session = shiny::getDefaultReactiveD
 #' @param ns Namespace function of the results module.
 #' @param result An `stv_result`.
 #'
+#' @param selected Tab to open: the Code tab in Expert mode.
+#'
 #' @return A `bslib::navset_card_underline()`.
 #' @noRd
-stv_explorer_ui <- function(ns, result) {
+stv_explorer_ui <- function(ns, result, selected = "Removal path") {
   m <- result@metrics
   flips <- length(m$worstcase_fragility_k) && is.finite(m$worstcase_fragility_k)
   plot_height <- "380px"
   bslib::navset_card_underline(
     id = ns("tabs"),
+    selected = selected,
     full_screen = TRUE,
     bslib::nav_panel(
       "Removal path",
@@ -536,7 +563,7 @@ stv_format_number <- function(x, digits = 1) {
 #' @return A `shiny::tags` div.
 #' @noRd
 stv_score_box <- function(title, value, unit = NULL, meter = NULL, caption = NULL,
-                          chip = NULL, chip_class = NULL, class = NULL) {
+                          chip = NULL, chip_class = NULL, class = NULL, info = NULL) {
   meter_tag <- if (!is.null(meter) && length(meter) && is.finite(meter)) {
     pct <- max(0, min(100, meter))
     shiny::tags$div(
@@ -549,7 +576,7 @@ stv_score_box <- function(title, value, unit = NULL, meter = NULL, caption = NUL
   }
   shiny::tags$div(
     class = paste(c("stv-score", class), collapse = " "),
-    shiny::tags$div(class = "stv-score-title", title),
+    shiny::tags$div(class = "stv-score-title", title, if (!is.null(info)) stv_info_popover(title, info)),
     # Built as one string so no whitespace separates the value from "%"
     shiny::tags$div(
       class = "stv-score-value",
@@ -565,6 +592,24 @@ stv_score_box <- function(title, value, unit = NULL, meter = NULL, caption = NUL
     } else {
       shiny::tags$span(class = paste(c("stv-chip", chip_class), collapse = " "), chip)
     }
+  )
+}
+
+#' Info button with a one-sentence definition
+#'
+#' @param title What is defined.
+#' @param text The definition.
+#'
+#' @return A `bslib::popover()`.
+#' @noRd
+stv_info_popover <- function(title, text) {
+  bslib::popover(
+    shiny::tags$button(
+      type = "button", class = "stv-info", `aria-label` = paste("About", title),
+      bsicons::bs_icon("info-circle", a11y = "deco")
+    ),
+    text,
+    title = title
   )
 }
 
@@ -629,6 +674,7 @@ stv_results_card <- function(result) {
   if (!is.null(estimate)) estimate <- paste("Estimate", estimate)
   fragility_caption <- stv_fragility_text(result)
   tone <- stv_label_tone(result)
+  info <- stv_glossary()
 
   bslib::card(
     bslib::card_header(
@@ -643,27 +689,27 @@ stv_results_card <- function(result) {
           "Composite score", stv_format_number(result@score, 0),
           meter = result@score,
           caption = "Weighted mean of the three components, 0 to 100",
-          chip = "result",
+          chip = "result", info = info$composite,
           class = c("stv-score-head", if (!is.null(tone)) paste0("stv-score-", tone))
         ),
         stv_score_box(
           "Jackknife stability", stv_format_number(m$jackknife_conclusion_stability, 0), "%",
           meter = m$jackknife_conclusion_stability,
-          caption = "Leave-one-out runs keeping the decision",
+          caption = "Leave-one-out runs keeping the decision", info = info$jackknife,
           chip = stv_weight_chip(w, "jackknife"),
           chip_class = if (isTRUE(w[["jackknife"]] == 0)) "stv-chip-muted"
         ),
         stv_score_box(
           "Removal fragility", stv_format_number(m$worstcase_fragility_component, 0), " / 100",
           meter = m$worstcase_fragility_component,
-          caption = fragility_caption,
+          caption = fragility_caption, info = info$fragility,
           chip = stv_weight_chip(w, "fragility"),
           chip_class = if (isTRUE(w[["fragility"]] == 0)) "stv-chip-muted"
         ),
         stv_score_box(
           "Bootstrap same-decision rate", stv_format_number(m$bootstrap_same_decision_rate, 0), "%",
           meter = m$bootstrap_same_decision_rate,
-          caption = "Resamples keeping the decision",
+          caption = "Resamples keeping the decision", info = info$bootstrap,
           chip = stv_weight_chip(w, "bootstrap"),
           chip_class = if (isTRUE(w[["bootstrap"]] == 0)) "stv-chip-muted"
         ),
@@ -673,7 +719,7 @@ stv_results_card <- function(result) {
             shiny::tags$div(class = "stv-score-decision", decision),
             estimate
           ),
-          chip = "not in score", chip_class = "stv-chip-muted"
+          chip = "not in score", chip_class = "stv-chip-muted", info = info$p_value
         )
       ),
       stv_score_formula(result)

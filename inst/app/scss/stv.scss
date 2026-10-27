@@ -750,3 +750,55 @@ pre,
 .stv-export-group .shiny-input-container {
   margin-bottom: 0;
 }
+
+// Info popover buttons on the score boxes
+.stv-info {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--stv-muted);
+  vertical-align: -0.1em;
+  cursor: pointer;
+}
+
+.stv-info:hover,
+.stv-info:focus-visible {
+  color: var(--bs-primary);
+}
+
+// Guided "What does this mean?" panel
+.stv-meaning-list {
+  max-width: 62rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.stv-meaning-list li + li {
+  margin-top: 0.35rem;
+}
+
+.stv-meaning-list li:last-child {
+  color: var(--stv-muted);
+  font-size: 0.875rem;
+}
+
+.stv-citation {
+  max-width: 62rem;
+  padding-left: 0.9rem;
+  border-left: 3px solid var(--bs-border-color);
+}
+
+// Bootstrap's secondary grey is the light-mode one; in dark mode it falls
+// below 4.5:1 on the surface, so outline buttons use the muted token
+[data-bs-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color: var(--stv-muted);
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-color: var(--bs-body-bg);
+  --bs-btn-hover-bg: var(--stv-muted);
+  --bs-btn-hover-border-color: var(--stv-muted);
+  --bs-btn-active-color: var(--bs-body-bg);
+  --bs-btn-active-bg: var(--stv-muted);
+  --bs-btn-disabled-color: var(--stv-muted);
+}
