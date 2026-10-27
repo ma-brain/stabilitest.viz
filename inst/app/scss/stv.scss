@@ -735,3 +735,18 @@ pre,
 .stv-interpretation p {
   margin-bottom: 0;
 }
+
+// Export tab
+.stv-export-group {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.stv-export-group:last-child {
+  border-bottom: 0;
+}
+
+.stv-export-group .form-group,
+.stv-export-group .shiny-input-container {
+  margin-bottom: 0;
+}

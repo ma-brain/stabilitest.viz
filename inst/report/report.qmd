@@ -1,0 +1,67 @@
+---
+title: "{{title}}"
+subtitle: "stabilitest.viz robustness report"
+date: "{{date}}"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    theme: cosmo
+    fig-align: left
+  docx:
+    toc: true
+  typst:
+    toc: true
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
+---
+
+## Summary
+
+{{data}}
+
+::: {.callout-note appearance="simple"}
+{{calibration}}
+:::
+
+{{summary}}
+
+{{formula}}
+
+## Removal path
+
+{{removal_intro}}
+
+![Worst-case removal path{{extreme_caption}}.]({{plot_removal}}){width=100%}
+
+{{removed}}
+
+## Influence
+
+Each point is the p-value with one observation left out. The solid line is the original p-value, the dashed line alpha.
+
+![Leave-one-out p-values.]({{plot_influence}}){width=100%}
+
+{{influential}}
+
+## Bootstrap
+
+{{bootstrap_intro}}
+
+![p-values of the bootstrap resamples.]({{plot_bootstrap}}){width=100%}
+
+{{interpretation}}
+
+## Reproducible code
+
+The code below runs outside the app and gives the same result.
+
+```r
+{{code}}
+```
+
+## Software
+
+{{software}}

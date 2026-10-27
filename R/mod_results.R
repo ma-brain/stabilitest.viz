@@ -94,6 +94,44 @@ mod_results_server <- function(id, store) {
       }
     }, ignoreInit = TRUE)
 
+    # Downloads
+    output$report <- shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, "report", input$report_format %||% "html"),
+      content = \(file) {
+        shiny::withProgress(message = "Rendering the report", {
+          stv_render_report(store$result, store$data, store$data_label, file, input$report_format %||% "html")
+        })
+      }
+    )
+    plot_download <- \(format) shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, input$plot_which %||% "removal", format),
+      content = \(file) {
+        plot <- stv_result_plots(store$result)[[input$plot_which %||% "removal"]]
+        stv_save_plot(plot, file, format)
+      }
+    )
+    output$plot_png <- plot_download("png")
+    output$plot_svg <- plot_download("svg")
+    output$tables_xlsx <- shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, "tables", "xlsx"),
+      content = \(file) stv_write_tables(stv_export_tables(store$result, store$data), file, "xlsx")
+    )
+    output$table_csv <- shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, input$table_which %||% "summary", "csv"),
+      content = \(file) {
+        tables <- stv_export_tables(store$result, store$data)
+        stv_write_tables(tables[input$table_which %||% "summary"], file, "csv")
+      }
+    )
+    output$script <- shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, "code", "R"),
+      content = \(file) writeLines(store$result@code, file)
+    )
+    output$rds <- shiny::downloadHandler(
+      filename = \() stv_download_name(store$result, "result", "rds"),
+      content = \(file) saveRDS(store$result@raw, file)
+    )
+
     output$selection_note <- shiny::renderUI({
       rows <- selected()
       if (!length(rows)) {
@@ -189,8 +227,74 @@ stv_explorer_ui <- function(ns, result) {
       shiny::uiOutput(ns("selection_note"))
     ),
     bslib::nav_panel("Interpretation", stv_interpretation_ui(result)),
-    bslib::nav_panel("Code", stv_code_block(result))
+    bslib::nav_panel("Code", stv_code_block(result)),
+    bslib::nav_panel("Export", stv_export_ui(ns))
   )
+}
+
+#' Export tab
+#'
+#' @param ns Namespace function of the results module.
+#'
+#' @return Tags.
+#' @noRd
+stv_export_ui <- function(ns) {
+  download <- \(id, label, icon = "download") shiny::downloadButton(ns(id), label,
+    class = "btn-sm btn-outline-primary", icon = bsicons::bs_icon(icon, a11y = "deco"))
+  group <- \(title, text, ...) shiny::tags$div(
+    class = "stv-export-group",
+    shiny::tags$h3(class = "stv-section-title", title),
+    shiny::tags$p(class = "stv-tab-intro", text),
+    shiny::tags$div(class = "d-flex flex-wrap align-items-end gap-2", ...)
+  )
+  shiny::tags$div(
+    class = "stv-export",
+    group(
+      "Report", "The verdict, the three plots, the removed observations, stabilitest's interpretation, the code and software versions.",
+      if (stv_can_render_report()) {
+        shiny::tagList(
+          shiny::selectInput(ns("report_format"), NULL, c(HTML = "html", Word = "docx", PDF = "pdf"), width = "130px"),
+          download("report", "Download report", "file-earmark-text")
+        )
+      } else {
+        shiny::tags$p(class = "small mb-0", "Reports need Quarto, which is not installed on this server.")
+      }
+    ),
+    group(
+      "Plots", "As shown in the explorer, with a light background.",
+      shiny::selectInput(ns("plot_which"), NULL,
+        c(`Removal path` = "removal", Influence = "influence", Bootstrap = "bootstrap"), width = "170px"),
+      download("plot_png", "PNG", "image"),
+      download("plot_svg", "SVG", "filetype-svg")
+    ),
+    group(
+      "Tables", "The tables stabilitest returned, the summary and the removed observations with their data rows.",
+      download("tables_xlsx", "All tables (XLSX)", "file-earmark-spreadsheet"),
+      shiny::selectInput(ns("table_which"), NULL, c(
+        Summary = "summary", Metrics = "metrics", `Removal path` = "removal_path", Jackknife = "jackknife",
+        Bootstrap = "bootstrap", `Removed observations` = "removed_observations"
+      ), width = "200px"),
+      download("table_csv", "CSV", "filetype-csv")
+    ),
+    group(
+      "Code and result", "The R script reproduces the result; the RDS file is the object stabilitest returned.",
+      download("script", "R script", "code-slash"),
+      download("rds", "Result (RDS)", "box")
+    )
+  )
+}
+
+#' File name for a download
+#'
+#' @param result An `stv_result`.
+#' @param what What is downloaded.
+#' @param ext File extension.
+#'
+#' @return A string.
+#' @noRd
+stv_download_name <- function(result, what, ext) {
+  method <- gsub("[^A-Za-z0-9]+", "-", tolower(result@method))
+  paste0("stabilitest-", method, "-", what, "-", format(Sys.Date(), "%Y%m%d"), ".", ext)
 }
 
 #' Data rows of selected observations
@@ -520,28 +624,10 @@ stv_score_formula <- function(result) {
 stv_results_card <- function(result) {
   m <- result@metrics
   w <- result@weights
-  decision <- if (identical(result@family, "tost")) {
-    if (isTRUE(result@significant)) "Claim shown at this level" else "Claim not shown at this level"
-  } else if (isTRUE(result@significant)) {
-    sprintf("Significant at %s", format(result@alpha))
-  } else {
-    sprintf("Not significant at %s", format(result@alpha))
-  }
-  estimate <- if (length(result@estimate) && is.finite(result@estimate)) {
-    paste0(
-      "Estimate ", format(signif(result@estimate, 4)),
-      if (all(is.finite(result@ci))) paste0(" (", paste(format(signif(result@ci, 4)), collapse = " to "), ")")
-    )
-  }
-  k <- m$worstcase_fragility_k
-  fragility_caption <- if (length(k) && is.finite(k)) {
-    sprintf(
-      "Decision flips after removing %s obs (%s%%)",
-      stv_format_number(k, 0), stv_format_number(m$worstcase_fragility_pct)
-    )
-  } else {
-    "Decision did not flip within the removal limit"
-  }
+  decision <- stv_decision_text(result)
+  estimate <- stv_estimate_text(result)
+  if (!is.null(estimate)) estimate <- paste("Estimate", estimate)
+  fragility_caption <- stv_fragility_text(result)
   tone <- stv_label_tone(result)
 
   bslib::card(
