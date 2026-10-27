@@ -271,6 +271,12 @@ mod_map_server <- function(id, store, family) {
       )
     })
 
+    # Render while the Map panel is closed, so the suggested mapping is in place
+    # when someone goes straight to Run
+    for (id in c("inputs", "success_ui", "levels_ui", "reference_ui", "term_ui")) {
+      shiny::outputOptions(output, id, suspendWhenHidden = FALSE)
+    }
+
     shiny::reactive({
       fam <- family()
       if (is.null(fam$family)) {

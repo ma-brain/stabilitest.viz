@@ -77,6 +77,8 @@ mod_question_server <- function(id, store) {
       }
     })
 
+    shiny::outputOptions(output, "test_ui", suspendWhenHidden = FALSE)
+
     shiny::reactive({
       family <- input$family
       if (!length(family)) {
