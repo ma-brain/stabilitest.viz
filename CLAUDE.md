@@ -29,6 +29,7 @@ separate package. Source of truth: `docs/PLAN.md`. Brand: `docs/brand/BRAND.md`.
 - Docs: `Rscript -e 'devtools::document()'`
 - Test: `Rscript -e 'devtools::test()'`
 - Check: `Rscript -e 'devtools::check()'` (must stay at 0 errors, 0 warnings, 0 notes)
+- Manuals: `docs/manuals/build.sh` renders and checks the three PDFs (install the package first); `Rscript dev/screenshots.R` re-takes their screenshots. CI attaches them to each release (`manuals.yaml`).
 - Docker: `docker build -t stabilitest-viz .` then `docker run --rm -p 3838:3838 stabilitest-viz` (see `docs/deployment.md`)
 - Profiles (`inst/golem-config.yml`): default, production, public (Guided only,
   uploads off, example preloaded). `R_CONFIG_ACTIVE` is honoured if valid.
