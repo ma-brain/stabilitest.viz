@@ -15,6 +15,9 @@ app_server <- function(input, output, session, profile = NULL) {
     stv_store_set_mode(store, if (isTRUE(input$expert_mode)) "expert" else "guided")
   })
 
+  # Plots follow the light/dark switch
+  shiny::observeEvent(input$dark_mode, store$theme <- input$dark_mode)
+
   mod_analyse_server("analyse", store)
 
   invisible(NULL)

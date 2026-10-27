@@ -1,8 +1,9 @@
 #' Results area
 #'
-#' M2 shows the verdict numbers, the calibration banner and the reproducible
-#' code. The tabbed explorer (removal path, influence, bootstrap and so on) is
-#' M3.
+#' The verdict (calibration banner, score row) above tabs that explore each
+#' part of the result: removal path, influence, bootstrap, removed
+#' observations, interpretation and code. Selecting observations in the
+#' influence plot or the removed-observations table selects them in both.
 #'
 #' @param id Module id.
 #'
@@ -21,15 +22,281 @@ mod_results_ui <- function(id) {
 #' @noRd
 mod_results_server <- function(id, store) {
   shiny::moduleServer(id, function(input, output, session) {
+    ns <- session$ns
+    # Rows of the filtered data selected in a plot or table, shared by the tabs
+    selected <- shiny::reactiveVal(integer())
+    shiny::observeEvent(store$result, selected(integer()), ignoreNULL = FALSE)
+    mode <- shiny::reactive(if (identical(store$theme, "dark")) "dark" else "light")
+
     output$results <- shiny::renderUI({
       result <- store$result
       if (is.null(result)) {
         return(mod_results_placeholder_ui())
       }
-      stv_results_card(result)
+      shiny::tagList(stv_results_card(result), stv_explorer_ui(ns, result))
     })
+
+    output$removal_plot <- plotly::renderPlotly({
+      shiny::req(store$result)
+      stv_plotly(stv_plot_removal(store$result, mode()), mode = mode())
+    })
+
+    output$influence_plot <- plotly::renderPlotly({
+      shiny::req(store$result)
+      w <- stv_plotly(stv_plot_influence(store$result, selected(), mode()), source = ns("influence"), mode = mode())
+      w <- plotly::layout(w, dragmode = "select")
+      for (event in c("plotly_click", "plotly_selected", "plotly_deselect")) w <- plotly::event_register(w, event)
+      w
+    })
+
+    # Click or drag over points to select them; double-click clears
+    influence_event <- \(event) stv_plotly_event(event, ns("influence"))
+    shiny::observeEvent(influence_event("plotly_click"), {
+      selected(as.integer(unlist(influence_event("plotly_click")$key)))
+    })
+    shiny::observeEvent(influence_event("plotly_selected"), {
+      selected(as.integer(unlist(influence_event("plotly_selected")$key)))
+    })
+    shiny::observeEvent(influence_event("plotly_deselect"), selected(integer()))
+
+    output$influence_rows <- reactable::renderReactable({
+      result <- shiny::req(store$result)
+      rows <- selected()
+      shiny::validate(shiny::need(length(rows), "Click a point, or drag over several, to see their rows here."))
+      stv_rows_table(result, store$data, rows)
+    })
+
+    output$bootstrap_plot <- plotly::renderPlotly({
+      shiny::req(store$result)
+      stv_plotly(stv_plot_bootstrap(store$result, mode()), mode = mode())
+    })
+
+    output$removed_table <- reactable::renderReactable({
+      stv_removed_table(shiny::req(store$result), store$data)
+    })
+    shiny::observeEvent(reactable::getReactableState("removed_table", "selected"), {
+      result <- store$result
+      picked <- reactable::getReactableState("removed_table", "selected")
+      steps <- result@removal[result@removal$k_removed > 0, , drop = FALSE]
+      selected(as.integer(steps$row[picked]))
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
+    output$selection_note <- shiny::renderUI({
+      rows <- selected()
+      if (!length(rows)) {
+        return(NULL)
+      }
+      shiny::tags$p(
+        class = "small text-body-secondary mb-0",
+        sprintf("%d selected (rows %s). They are ringed in the Influence plot.", length(rows), paste(utils::head(rows, 12), collapse = ", ")),
+        if (length(rows) > 12) "..."
+      )
+    })
+
     invisible(NULL)
   })
+}
+
+#' Read a plotly event
+#'
+#' plotly warns, after every update, about events read before their plot has
+#' been drawn, which is the case while the Influence tab is hidden. The event
+#' is recorded in the list plotly checks (`plotlyShinyEventIDs`), as
+#' `plotly::event_register()` does when the plot is drawn.
+#'
+#' @param event Event name, e.g. `"plotly_click"`.
+#' @param source Plot source id.
+#' @param session The Shiny session.
+#'
+#' @return The event data, or `NULL`.
+#' @noRd
+stv_plotly_event <- function(event, source, session = shiny::getDefaultReactiveDomain()) {
+  ids <- session$userData$plotlyShinyEventIDs
+  session$userData$plotlyShinyEventIDs <- unique(c(ids, paste(event, source, sep = "-")))
+  plotly::event_data(event, source = source, session = session)
+}
+
+#' The tabs below the verdict
+#'
+#' @param ns Namespace function of the results module.
+#' @param result An `stv_result`.
+#'
+#' @return A `bslib::navset_card_underline()`.
+#' @noRd
+stv_explorer_ui <- function(ns, result) {
+  m <- result@metrics
+  flips <- length(m$worstcase_fragility_k) && is.finite(m$worstcase_fragility_k)
+  plot_height <- "380px"
+  bslib::navset_card_underline(
+    id = ns("tabs"),
+    full_screen = TRUE,
+    bslib::nav_panel(
+      "Removal path",
+      shiny::tags$p(
+        class = "stv-tab-intro",
+        "stabilitest removes one observation at a time, each time the one that moves the p-value furthest toward the other decision. ",
+        if (flips) {
+          sprintf("The decision changes after %s observations are removed.", stv_format_number(m$worstcase_fragility_k, 0))
+        } else {
+          "The decision did not change within the removal limit."
+        },
+        if (!is.null(result@extreme)) " The dashed line removes the most extreme values instead, for comparison; it is not part of the score."
+      ),
+      plotly::plotlyOutput(ns("removal_plot"), height = plot_height)
+    ),
+    bslib::nav_panel(
+      "Influence",
+      shiny::tags$p(
+        class = "stv-tab-intro",
+        "Each point is the p-value with one observation left out. The solid line is the original p-value, the dashed line alpha. ",
+        "Points stabilitest flags as influential are marked. Click a point or drag over several to see their rows."
+      ),
+      plotly::plotlyOutput(ns("influence_plot"), height = plot_height),
+      reactable::reactableOutput(ns("influence_rows"))
+    ),
+    bslib::nav_panel(
+      "Bootstrap",
+      shiny::tags$p(
+        class = "stv-tab-intro",
+        sprintf(
+          "p-values of the %s bootstrap resamples. %s%% reach the same decision as the original analysis (the bootstrap same-decision rate). The solid line is the original p-value, the dashed line alpha.",
+          format(sum(is.finite(result@bootstrap$p_value))), stv_format_number(m$bootstrap_same_decision_rate, 0)
+        )
+      ),
+      plotly::plotlyOutput(ns("bootstrap_plot"), height = plot_height)
+    ),
+    bslib::nav_panel(
+      "Removed observations",
+      shiny::tags$p(
+        class = "stv-tab-intro",
+        "The observations the worst-case path removed, in order, with their rows from the data. ",
+        "Select rows to ring them in the Influence plot."
+      ),
+      reactable::reactableOutput(ns("removed_table")),
+      shiny::uiOutput(ns("selection_note"))
+    ),
+    bslib::nav_panel("Interpretation", stv_interpretation_ui(result)),
+    bslib::nav_panel("Code", stv_code_block(result))
+  )
+}
+
+#' Data rows of selected observations
+#'
+#' @param result An `stv_result`.
+#' @param data The filtered data.
+#' @param rows Row numbers in `data`.
+#'
+#' @return A `reactable::reactable()`.
+#' @noRd
+stv_rows_table <- function(result, data, rows) {
+  jk <- result@jackknife[match(rows, result@jackknife$row), , drop = FALSE]
+  df <- data.frame(
+    Observation = jk$label, Row = rows,
+    `p left out` = stv_tooltip_p(jk$p_value),
+    Influential = ifelse(jk$influential %in% TRUE, "Flagged", ""),
+    check.names = FALSE
+  )
+  df <- cbind(df, as.data.frame(data)[rows, , drop = FALSE])
+  reactable::reactable(df, compact = TRUE, pagination = length(rows) > 10, defaultPageSize = 10,
+    class = "stv-reactable", theme = stv_reactable_theme(), columns = list(Row = reactable::colDef(width = 70)))
+}
+
+#' Table theme that follows the page's light and dark colours
+#'
+#' @return A `reactable::reactableTheme()`.
+#' @noRd
+stv_reactable_theme <- function() {
+  reactable::reactableTheme(
+    color = "var(--bs-body-color)",
+    backgroundColor = "transparent",
+    borderColor = "var(--bs-border-color)",
+    highlightColor = "var(--stv-mist)",
+    cellPadding = "6px 8px",
+    style = list(fontSize = "0.875rem", fontVariantNumeric = "tabular-nums"),
+    headerStyle = list(color = "var(--stv-muted)", fontWeight = 600),
+    rowSelectedStyle = list(backgroundColor = "var(--stv-mist)", boxShadow = "inset 3px 0 0 var(--bs-primary)"),
+    inputStyle = list(backgroundColor = "transparent"),
+    paginationStyle = list(color = "var(--stv-muted)")
+  )
+}
+
+#' Table of the observations removed on the worst-case path
+#'
+#' @param result An `stv_result`.
+#' @param data The filtered data.
+#'
+#' @return A `reactable::reactable()`.
+#' @noRd
+stv_removed_table <- function(result, data) {
+  steps <- as.data.frame(result@removal[result@removal$k_removed > 0, , drop = FALSE])
+  flip <- steps$k_removed[which(!steps$conclusion_match)[1]]
+  df <- data.frame(
+    Step = steps$k_removed, Observation = steps$label, Row = steps$row,
+    `p after removal` = stv_tooltip_p(steps$p_value),
+    Decision = ifelse(steps$conclusion_match %in% TRUE, "Same", "Changed"),
+    check.names = FALSE
+  )
+  df <- cbind(df, as.data.frame(data)[steps$row, , drop = FALSE])
+  reactable::reactable(
+    df, compact = TRUE, selection = "multiple", onClick = "select", class = "stv-reactable",
+    theme = stv_reactable_theme(),
+    pagination = nrow(df) > 15, defaultPageSize = 15,
+    rowClass = \(i) if (!is.na(flip) && df$Step[i] == flip) "stv-row-flip",
+    columns = list(Step = reactable::colDef(width = 60), Row = reactable::colDef(width = 70))
+  )
+}
+
+#' Interpretation text from stabilitest
+#'
+#' @param result An `stv_result`.
+#'
+#' @return Tags.
+#' @noRd
+stv_interpretation_ui <- function(result) {
+  text <- result@interpretation
+  if (is.null(text)) {
+    note <- if (result@family %in% c("location", "proportion")) {
+      "Turn on \u201cWrite an interpretation\u201d in the Settings step and run again to get stabilitest's text."
+    } else {
+      "stabilitest writes interpretation text for the two-group tests only."
+    }
+    return(shiny::tags$p(class = "stv-tab-intro", note))
+  }
+  parts <- c(
+    overall = "Overall", jackknife = "Jackknife", worstcase = "Worst-case removal",
+    bootstrap = "Bootstrap", recommendation = "Recommendation"
+  )
+  parts <- parts[names(parts) %in% names(text)]
+  shiny::tagList(
+    shiny::tags$p(class = "stv-tab-intro", "Text written by stabilitest for this result."),
+    lapply(names(parts), \(nm) shiny::tags$div(
+      class = "stv-interpretation",
+      shiny::tags$h3(class = "stv-section-title", parts[[nm]]),
+      shiny::tags$p(text[[nm]])
+    ))
+  )
+}
+
+#' Reproducible code with a copy button
+#'
+#' @param result An `stv_result`.
+#'
+#' @return Tags.
+#' @noRd
+stv_code_block <- function(result) {
+  shiny::tags$div(
+    class = "stv-code-wrap",
+    shiny::tags$div(
+      class = "d-flex align-items-center mb-2",
+      shiny::tags$p(class = "stv-tab-intro mb-0", "Runs outside the app and gives the same result."),
+      shiny::tags$button(
+        type = "button", class = "btn btn-sm btn-outline-secondary ms-auto",
+        onclick = "navigator.clipboard.writeText(this.closest('.stv-code-wrap').querySelector('code').innerText)",
+        bsicons::bs_icon("clipboard", a11y = "deco"), " Copy"
+      )
+    ),
+    shiny::HTML(paste0("<pre class=\"stv-code\"><code>", stv_escape_html(result@code), "</code></pre>"))
+  )
 }
 
 #' Format a p-value
@@ -282,20 +549,7 @@ stv_results_card <- function(result) {
           chip = "not in score", chip_class = "stv-chip-muted"
         )
       ),
-      stv_score_formula(result),
-      shiny::tags$div(
-        class = "stv-code-wrap",
-        shiny::tags$div(
-          class = "d-flex align-items-center mb-2",
-          shiny::tags$h3(class = "stv-section-title mb-0", "Reproducible code"),
-          shiny::tags$button(
-            type = "button", class = "btn btn-sm btn-outline-secondary ms-auto",
-            onclick = "navigator.clipboard.writeText(this.closest('.stv-code-wrap').querySelector('code').innerText)",
-            bsicons::bs_icon("clipboard", a11y = "deco"), " Copy"
-          )
-        ),
-        shiny::HTML(paste0("<pre class=\"stv-code\"><code>", stv_escape_html(result@code), "</code></pre>"))
-      )
+      stv_score_formula(result)
     )
   )
 }

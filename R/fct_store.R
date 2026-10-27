@@ -5,7 +5,8 @@
 #'
 #' `raw_data` is the data as loaded and `data` is what analyses use, after
 #' filters. `adam`, `filters`, `checks` and `suggestion` are derived from them
-#' by `stv_store_set_data()` and `stv_store_set_filters()`.
+#' by `stv_store_set_data()` and `stv_store_set_filters()`. `theme` follows the
+#' light/dark switch, for plots.
 #'
 #' @param profile `NULL` or one of `stv_profiles()`.
 #'
@@ -17,6 +18,7 @@ stv_store <- function(profile = NULL) {
   shiny::reactiveValues(
     profile = profile,
     mode = "guided",
+    theme = "light",
     raw_data = NULL,
     data = NULL,
     data_label = NULL,

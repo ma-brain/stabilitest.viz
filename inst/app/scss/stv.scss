@@ -708,3 +708,30 @@ pre,
   color: var(--bs-body-color);
   background: var(--stv-mist);
 }
+
+// Results explorer -------------------------------------------------------------
+
+.stv-tab-intro {
+  max-width: 62rem;
+  font-size: 0.875rem;
+  color: var(--stv-muted);
+}
+
+.stv-reactable {
+  margin-top: 0.75rem;
+}
+
+// The step at which stabilitest reports the decision changed
+.stv-row-flip {
+  box-shadow: inset 3px 0 0 var(--stv-accent);
+  font-weight: 600;
+}
+
+.stv-interpretation {
+  max-width: 62rem;
+  margin-bottom: 1rem;
+}
+
+.stv-interpretation p {
+  margin-bottom: 0;
+}
