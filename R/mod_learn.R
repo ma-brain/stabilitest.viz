@@ -83,6 +83,46 @@ mod_learn_ui <- function() {
           )
         )
       )
+    ),
+    stv_read_more_card()
+  )
+}
+
+#' Links to the stabilitest documentation
+#'
+#' @return A `bslib::card()`.
+#' @noRd
+stv_read_more_card <- function() {
+  repo <- "https://github.com/ma-brain/stabilitest"
+  vignettes <- c(
+    `pain-case-study` = "Pain Trial Case Study: Interpreting Robustness Scores",
+    `proportions-case-study` = "Proportion Test Case Study: Binary Response in an Oncology Trial",
+    `ancova-case-study` = "ANCOVA Case Study: Canonical Treatment Adjustment"
+  )
+  link <- \(href, text, ...) shiny::tags$a(href = href, target = "_blank", rel = "noopener", text, ...)
+  bslib::card(
+    class = "mt-4",
+    bslib::card_header(
+      shiny::tags$span(class = "stv-learn-icon", bsicons::bs_icon("journal-text", a11y = "deco")),
+      "Read more"
+    ),
+    bslib::card_body(
+      shiny::tags$p(
+        "The stabilitest package, its documentation and source: ",
+        link(repo, "github.com/ma-brain/stabilitest", .noWS = "after"), "."
+      ),
+      shiny::tags$p(class = "mb-1", "Case studies, worked through in R:"),
+      shiny::tags$ul(
+        class = "mb-2",
+        lapply(names(vignettes), \(v) shiny::tags$li(
+          link(paste0(repo, "/blob/main/vignettes/", v, ".Rmd"), vignettes[[v]]),
+          shiny::tags$span(class = "text-body-secondary small", sprintf(" (in R: vignette(\"%s\", package = \"stabilitest\"))", v))
+        ))
+      ),
+      shiny::tags$p(
+        class = "small text-body-secondary mb-0",
+        "How to cite stabilitest is on the About page."
+      )
     )
   )
 }

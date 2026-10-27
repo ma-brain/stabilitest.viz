@@ -8,7 +8,7 @@ mod_about_ui <- function() {
   shiny::tags$div(
     class = "stv-page",
     bslib::layout_columns(
-      col_widths = c(12, 12),
+      col_widths = c(12, 12, 12),
       bslib::card(
         bslib::card_header("Versions"),
         bslib::card_body(
@@ -31,9 +31,32 @@ mod_about_ui <- function() {
           ),
           stv_registry_table()
         )
+      ),
+      bslib::card(
+        bslib::card_header("Citation"),
+        bslib::card_body(
+          shiny::tags$p(class = "text-body-secondary", "If you use stabilitest in published work, please cite it:"),
+          shiny::tags$blockquote(class = "stv-citation mb-0", stv_citation_text())
+        )
       )
     )
   )
+}
+
+#' Citation of the installed stabilitest
+#'
+#' @return A string.
+#' @noRd
+stv_citation_text <- function() {
+  text <- tryCatch(
+    format(utils::citation("stabilitest"), style = "text"),
+    error = \(e) character()
+  )
+  if (!length(text)) {
+    return("See https://github.com/ma-brain/stabilitest.")
+  }
+  # Drop the Markdown emphasis and angle brackets of the text style
+  gsub("[_<>]", "", paste(text, collapse = " "))
 }
 
 #' Calibration registry table
