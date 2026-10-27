@@ -27,3 +27,28 @@ test_that("theme compiles without web fonts", {
   expect_identical(unname(bslib::bs_get_variables(theme, "primary")), "#1F6F78")
   expect_no_error(bslib::bs_theme_dependencies(theme))
 })
+
+test_that("text colours meet WCAG AA contrast in both themes", {
+  luminance <- function(hex) {
+    rgb <- grDevices::col2rgb(hex)[, 1] / 255
+    lin <- ifelse(rgb <= 0.03928, rgb / 12.92, ((rgb + 0.055) / 1.055)^2.4)
+    sum(c(0.2126, 0.7152, 0.0722) * lin)
+  }
+  contrast <- function(a, b) {
+    l <- sort(c(luminance(a), luminance(b)), decreasing = TRUE)
+    (l[1] + 0.05) / (l[2] + 0.05)
+  }
+  for (mode in c("light", "dark")) {
+    pal <- stv_palette(mode)
+    # Body text, secondary text, links and buttons, accents and label text
+    for (fg in c("fg", "muted", "primary", "accent", "not_fragile", "fragile", "numeric_only")) {
+      for (bg in c("bg", "surface")) {
+        expect_gte(contrast(pal[[fg]], pal[[bg]]), 4.5, label = paste(mode, fg, "on", bg))
+      }
+    }
+    # Plot lines and points against the plot background (non-text, 3:1)
+    for (s in stv_series_colours(3, mode)) {
+      expect_gte(contrast(s, pal$surface), 3, label = paste(mode, "series", s))
+    }
+  }
+})

@@ -28,7 +28,9 @@ app_ui <- function(request, profile = NULL) {
         shiny::tags$div(
           class = "stv-nav-control",
           shiny::tags$span("Guided"),
-          bslib::input_switch("expert_mode", label = NULL, value = FALSE),
+          # The visible words sit around the switch; screen readers get the label
+          bslib::input_switch("expert_mode", label = shiny::tags$span(class = "visually-hidden", "Expert mode"),
+            value = FALSE),
           shiny::tags$span("Expert")
         )
       )

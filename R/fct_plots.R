@@ -222,7 +222,8 @@ stv_plotly <- function(p, source = NULL, mode = "light") {
 
 #' Colours for several analyses
 #'
-#' The brand series. Dark mode starts with the light tones (primary, accent,
+#' The brand series, ordered so the first three reach 3:1 contrast with the
+#' plot background. Dark mode starts with the light tones (primary, accent,
 #' text) because the dark teals do not show on the dark background.
 #'
 #' @param n Number of colours.
@@ -235,7 +236,8 @@ stv_series_colours <- function(n, mode = "light") {
   series <- if (identical(mode, "dark")) {
     c(pal$primary, pal$accent, pal$fg, pal$series[5], pal$series[3])
   } else {
-    pal$series
+    # Light teal (series 3) is below 3:1 on white, so it comes after the ink
+    pal$series[c(1, 2, 4, 3, 5)]
   }
   rep_len(series, n)
 }
