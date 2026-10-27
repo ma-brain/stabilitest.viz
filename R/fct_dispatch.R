@@ -96,6 +96,9 @@ stv_prep_exprs <- function(spec) {
 #' @noRd
 stv_apply_prep <- function(steps, data) {
   env <- new.env(parent = baseenv())
+  # Row names track each row through the steps, so they must be the row
+  # numbers; named rows (as in `mtcars`) would otherwise map to nothing
+  rownames(data) <- NULL
   env$data <- data
   for (step in steps) {
     eval(step, env)
