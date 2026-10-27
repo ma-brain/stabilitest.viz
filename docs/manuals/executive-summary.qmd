@@ -1,0 +1,74 @@
+---
+title: "stabilitest.viz"
+subtitle: "How easily could a statistical conclusion be overturned?"
+doctype: "Executive summary"
+compact: true
+---
+
+```{r}
+source("_common.R")
+families <- stv$stv_families()
+registry <- stv$stv_registry()
+n_methods <- length(unique(registry$calibration_unit))
+validated <- unique(registry$calibration_unit[registry$status != "uncalibrated"])
+```
+
+## The question
+
+A p-value says whether a result is statistically significant. It does not say how
+easily that conclusion could be overturned: by leaving out one patient, by removing a
+handful of observations, or by sampling slightly different data. The stabilitest R
+package answers that question with three stress tests and a composite score.
+**stabilitest.viz** puts stabilitest in a web application, so reviewers can ask the
+question of their own data without writing code.
+
+## What the app does
+
+- **Five guided steps**: load data, choose the question, map columns to roles, adjust
+  settings, run. CSV, Excel and SAS files are read, and CDISC ADaM data sets are
+  recognised, with population and parameter filters set up automatically.
+- **`r nrow(families)` families of analysis**: `r paste(families$label, collapse = "; ")`.
+- **Three stress tests per result**: leave-one-out (jackknife) stability, the number of
+  observations whose removal changes the decision, and the bootstrap same-decision
+  rate. They are combined into a score from 0 to 100.
+- **Explore and compare**: interactive plots of the removal path, the influence of each
+  observation and the bootstrap distribution; analyses of the same data side by side.
+- **Code and reports**: every result comes with R code that reproduces it exactly
+  outside the app, and a report in HTML, Word or PDF.
+
+## A deliberate limit: labels only where they are validated
+
+A score is a number, not a verdict. The app shows a categorical label such as
+*Fragile* only when stabilitest returns one, which requires a calibration validated
+for that method and setting. Of the `r n_methods` methods in stabilitest's calibration
+registry, `r length(validated)` has one today: the `r paste(gsub("_", " ", validated), collapse = ", ")`
+test, for a significant result under its validated settings. For every other method the app shows the score and its parts as
+numbers, states plainly that no validated cutoff exists, and never colours a score
+red or green. The app computes no statistics of its own: every number on screen
+comes from stabilitest.
+
+## Who it is for
+
+| Audience | How the app serves them |
+|---|---|
+| Statisticians | Expert mode: all settings, the generated code, full result tables. |
+| Clinical reviewers | Guided mode: plain-language steps and a "What does this mean?" panel that restates each result in words. |
+| The public and students | A public profile with bundled examples, no uploads and links to worked case studies. |
+
+## Deployment
+
+The app is an R package (`run_app()`) and a Docker image that includes everything
+needed for reports. Three profiles set upload limits, resampling limits and modes:
+
+```{r}
+md_table(profiles_table()[, c("Profile", "Use", "Uploads", "Max resamples", "Modes")])
+```
+
+Sessions are independent and nothing is stored after a session ends.
+
+## Quality
+
+The package is checked on Linux, macOS and Windows on every change, and the Docker
+image is built and tested inside the container. Tests confirm that displayed numbers
+are the ones stabilitest returned, that labels appear only when stabilitest gives
+one, and that text and plot colours meet WCAG AA contrast.
