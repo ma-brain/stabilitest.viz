@@ -92,8 +92,8 @@ stv_plot_removal <- function(result, mode = "light") {
     ggplot2::geom_hline(yintercept = result@alpha, colour = col$muted, linetype = "dashed", linewidth = 0.5) +
     ggplot2::geom_line(linewidth = 0.8) +
     stv_tooltip_points(ggplot2::aes(text = .data$text), size = 1.6) +
-    ggplot2::annotate("text", x = 0, y = result@alpha, label = paste("alpha", format(result@alpha)),
-      hjust = 0, vjust = -0.5, colour = col$muted, size = 3.3) +
+    ggplot2::annotate("text", x = max(df$k_removed), y = result@alpha * 0.8,
+      label = paste("alpha", format(result@alpha)), hjust = 1, colour = col$muted, size = 3.3) +
     ggplot2::scale_colour_manual(values = c(`Worst-case removal` = col$main, `Extreme-value removal` = col$second)) +
     ggplot2::scale_linetype_manual(values = c(`Worst-case removal` = "solid", `Extreme-value removal` = "22")) +
     ggplot2::scale_x_continuous("Observations removed", breaks = scales_int_breaks) +
@@ -103,8 +103,8 @@ stv_plot_removal <- function(result, mode = "light") {
     p <- p +
       ggplot2::geom_point(data = flip, ggplot2::aes(.data$k_removed, .data$p_value), shape = 21, size = 4,
         stroke = 1, colour = col$marked, fill = NA, inherit.aes = FALSE) +
-      ggplot2::annotate("text", x = flip$k_removed, y = flip$p_value,
-        label = paste0("Decision flips after ", flip$k_removed), hjust = 1.08, vjust = -1.2,
+      ggplot2::annotate("text", x = flip$k_removed - 0.6, y = flip$p_value * 2.6,
+        label = paste0("Decision flips after ", flip$k_removed), hjust = 1,
         colour = col$marked, size = 3.3)
   }
   p
@@ -213,7 +213,7 @@ stv_plotly <- function(p, source = NULL, mode = "light") {
   w <- plotly::layout(
     w,
     paper_bgcolor = col$bg, plot_bgcolor = col$bg, font = list(color = col$fg),
-    legend = list(orientation = "h", x = 0, y = 1.12),
+    legend = list(orientation = "h", x = 0, y = 1.12, title = list(text = "")),
     hoverlabel = list(align = "left"),
     margin = list(t = 40)
   )

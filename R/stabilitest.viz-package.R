@@ -1,5 +1,5 @@
 #' @keywords internal
 "_PACKAGE"
 
-#' @importFrom rlang %||%
+#' @importFrom rlang %||% .data
 NULL

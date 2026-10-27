@@ -58,12 +58,12 @@ test_that("the removal path marks the step stabilitest reports as the flip", {
 test_that("the removed-observations table lists each step with its data row", {
   x <- welch_result()
   r <- x$result
-  tbl <- stv_removed_table(r, x$data)
-  df <- as.data.frame(jsonlite::fromJSON(tbl$x$tag$attribs$data))
+  expect_s3_class(stv_removed_table(r, x$data), "reactable")
+  df <- stv_removed_rows(r, x$data)
   steps <- r@removal[r@removal$k_removed > 0, ]
   expect_equal(df$Step, steps$k_removed)
   expect_equal(df$Row, steps$row)
-  expect_equal(df$outcome, x$data$outcome[steps$row])
+  expect_equal(df$outcome, signif(x$data$outcome[steps$row], 6))
   expect_equal(df$arm, x$data$arm[steps$row])
 })
 

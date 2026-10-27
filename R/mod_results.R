@@ -74,12 +74,25 @@ mod_results_server <- function(id, store) {
     output$removed_table <- reactable::renderReactable({
       stv_removed_table(shiny::req(store$result), store$data)
     })
+    removed_steps <- shiny::reactive({
+      result <- shiny::req(store$result)
+      result@removal$row[result@removal$k_removed > 0]
+    })
+    # Table to selection. Rows selected in the plot that the path did not
+    # remove have no table row, so only a change to the table's part counts
     shiny::observeEvent(reactable::getReactableState("removed_table", "selected"), {
-      result <- store$result
-      picked <- reactable::getReactableState("removed_table", "selected")
-      steps <- result@removal[result@removal$k_removed > 0, , drop = FALSE]
-      selected(as.integer(steps$row[picked]))
+      picked <- as.integer(removed_steps()[reactable::getReactableState("removed_table", "selected")])
+      if (!setequal(picked, intersect(selected(), removed_steps()))) selected(picked)
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    # Selection to table
+    shiny::observeEvent(selected(), {
+      steps <- removed_steps()
+      picked <- which(steps %in% selected())
+      current <- reactable::getReactableState("removed_table", "selected")
+      if (!setequal(picked, current %||% integer())) {
+        reactable::updateReactable("removed_table", selected = if (length(picked)) picked else NA)
+      }
+    }, ignoreInit = TRUE)
 
     output$selection_note <- shiny::renderUI({
       rows <- selected()
@@ -196,9 +209,26 @@ stv_rows_table <- function(result, data, rows) {
     Influential = ifelse(jk$influential %in% TRUE, "Flagged", ""),
     check.names = FALSE
   )
-  df <- cbind(df, as.data.frame(data)[rows, , drop = FALSE])
+  df <- cbind(df, stv_display_data(data, rows))
   reactable::reactable(df, compact = TRUE, pagination = length(rows) > 10, defaultPageSize = 10,
     class = "stv-reactable", theme = stv_reactable_theme(), columns = list(Row = reactable::colDef(width = 70)))
+}
+
+#' Data rows for display
+#'
+#' Decimal numbers are shown to 6 significant digits so they fit a table cell.
+#'
+#' @param data The filtered data.
+#' @param rows Row numbers.
+#'
+#' @return A data frame.
+#' @noRd
+stv_display_data <- function(data, rows) {
+  out <- as.data.frame(data)[rows, , drop = FALSE]
+  rownames(out) <- NULL
+  decimal <- vapply(out, \(x) is.double(x) && any(x != round(x), na.rm = TRUE), logical(1))
+  out[decimal] <- lapply(out[decimal], \(x) signif(x, 6))
+  out
 }
 
 #' Table theme that follows the page's light and dark colours
@@ -228,15 +258,8 @@ stv_reactable_theme <- function() {
 #' @return A `reactable::reactable()`.
 #' @noRd
 stv_removed_table <- function(result, data) {
-  steps <- as.data.frame(result@removal[result@removal$k_removed > 0, , drop = FALSE])
-  flip <- steps$k_removed[which(!steps$conclusion_match)[1]]
-  df <- data.frame(
-    Step = steps$k_removed, Observation = steps$label, Row = steps$row,
-    `p after removal` = stv_tooltip_p(steps$p_value),
-    Decision = ifelse(steps$conclusion_match %in% TRUE, "Same", "Changed"),
-    check.names = FALSE
-  )
-  df <- cbind(df, as.data.frame(data)[steps$row, , drop = FALSE])
+  df <- stv_removed_rows(result, data)
+  flip <- df$Step[which(df$Decision == "Changed")[1]]
   reactable::reactable(
     df, compact = TRUE, selection = "multiple", onClick = "select", class = "stv-reactable",
     theme = stv_reactable_theme(),
@@ -244,6 +267,24 @@ stv_removed_table <- function(result, data) {
     rowClass = \(i) if (!is.na(flip) && df$Step[i] == flip) "stv-row-flip",
     columns = list(Step = reactable::colDef(width = 60), Row = reactable::colDef(width = 70))
   )
+}
+
+#' Rows of the removed-observations table
+#'
+#' @param result An `stv_result`.
+#' @param data The filtered data.
+#'
+#' @return A data frame: one row per removal step, then the data columns.
+#' @noRd
+stv_removed_rows <- function(result, data) {
+  steps <- as.data.frame(result@removal[result@removal$k_removed > 0, , drop = FALSE])
+  df <- data.frame(
+    Step = steps$k_removed, Observation = steps$label, Row = steps$row,
+    `p after removal` = stv_tooltip_p(steps$p_value),
+    Decision = ifelse(steps$conclusion_match %in% TRUE, "Same", "Changed"),
+    check.names = FALSE
+  )
+  cbind(df, stv_display_data(data, steps$row))
 }
 
 #' Interpretation text from stabilitest
