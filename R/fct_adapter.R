@@ -11,7 +11,8 @@
 #' `label` is only ever what stabilitest returned in `interpretation_label`, and
 #' only when its calibration says the result is eligible. It is `NA` otherwise,
 #' in which case `calibration_status` and `calibration_message` explain why.
-#' The app never derives a label from `score`.
+#' The app never derives a label from `score`. `weights` are the score weights
+#' stabilitest reports it used.
 #'
 #' @noRd
 stv_result <- S7::new_class(
@@ -28,6 +29,7 @@ stv_result <- S7::new_class(
     alpha = S7::class_numeric,
     significant = S7::class_logical,
     score = S7::class_numeric,
+    weights = S7::class_numeric,
     metrics = S7::class_data.frame,
     jackknife = S7::class_data.frame,
     removal = S7::class_data.frame,
@@ -212,6 +214,7 @@ stv_as_result <- function(raw, spec, plan, prepared, row_map, elapsed = NA_real_
     alpha = raw$alpha,
     significant = raw$original_significant,
     score = metrics$overall_robustness,
+    weights = raw$weights %||% numeric(),
     metrics = metrics,
     jackknife = jackknife,
     removal = stv_normalise_table(worstcase_raw, path_columns),

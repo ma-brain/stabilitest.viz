@@ -50,6 +50,8 @@ test_that("every family runs and normalises to the same result shape", {
     expect_identical(nrow(res@bootstrap) > 0L, TRUE, info = nm)
     expect_true(all(res@jackknife$row %in% seq_len(nrow(data))), info = nm)
     expect_true(is.na(res@label), info = nm)
+    expect_identical(res@weights, out$raw$weights, info = nm)
+    expect_true("worstcase_fragility_component" %in% names(res@metrics), info = nm)
   }
 })
 
