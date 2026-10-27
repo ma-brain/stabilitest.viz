@@ -76,9 +76,14 @@ test_that("analysis units map to rows of the right group", {
   out <- stv_run_plan(plan, data)
   res <- stv_as_result(out$raw, spec, plan, out$prepared, out$row_map)
   g1 <- res@jackknife[startsWith(res@jackknife$label, "G1-"), ]
-  expect_true(all(data$arm[g1$row] == "Active"))
   g2 <- res@jackknife[startsWith(res@jackknife$label, "G2-"), ]
+  expect_identical(nrow(g1), sum(data$arm == "Active"))
+  expect_identical(nrow(g2), sum(data$arm == "Control"))
+  expect_true(all(data$arm[g1$row] == "Active"))
   expect_true(all(data$arm[g2$row] == "Control"))
+  expect_false(anyDuplicated(res@jackknife$row) > 0L)
+  # The label stabilitest gave each unit is kept
+  expect_identical(res@jackknife$label, out$raw$jackknife$results$label)
   expect_identical(nrow(res@jackknife), nrow(data))
 })
 

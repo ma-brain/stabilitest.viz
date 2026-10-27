@@ -175,7 +175,13 @@ stv_as_result <- function(raw, spec, plan, prepared, row_map, elapsed = NA_real_
   observations <- stv_observation_map(spec, prepared, row_map, nrow(jackknife_raw))
   unit_rows <- function(units) observations$row[match(units, observations$unit)]
 
-  unit_col <- if (is_nested) jackknife_raw$unit else jackknife_raw$row
+  # Two-group results number units within each group (G1-1 and G2-1 both have
+  # unit 1), so match them by stabilitest's label; models number rows
+  unit_col <- if (is_nested) {
+    observations$unit[match(jackknife_raw$label, observations$label)]
+  } else {
+    jackknife_raw$row
+  }
   jackknife <- stv_normalise_table(
     transform(
       as.data.frame(jackknife_raw),
