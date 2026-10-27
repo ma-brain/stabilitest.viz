@@ -1,0 +1,9 @@
+_output/
+*.typ
+!typst-template.typ
+!typst-show.typ
+.quarto/
+*_files/
+
+/.quarto/
+**/*.quarto_ipynb

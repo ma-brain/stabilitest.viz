@@ -1,0 +1,23 @@
+project:
+  render:
+    - executive-summary.qmd
+    - user-guide.qmd
+    - technical-documentation.qmd
+  output-dir: _output
+
+execute:
+  echo: false
+  warning: false
+  message: false
+
+format:
+  typst:
+    template-partials:
+      - typst-template.typ
+      - typst-show.typ
+    font-paths: [fonts]
+    keep-typ: true
+    syntax-highlighting: idiomatic
+    toc-depth: 2
+    fig-format: png
+    fig-dpi: 200
