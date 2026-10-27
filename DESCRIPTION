@@ -19,9 +19,12 @@ Imports:
     bslib (>= 0.8),
     bsicons,
     config,
+    ggplot2,
     golem,
     haven,
     mirai,
+    plotly,
+    reactable,
     readxl,
     rlang,
     S7,
@@ -29,6 +32,7 @@ Imports:
     shiny (>= 1.9),
     shinyvalidate,
     stabilitest (>= 0.6.5),
+    thematic,
     tibble,
     utils
 Suggests:
