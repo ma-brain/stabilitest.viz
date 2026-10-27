@@ -222,3 +222,5 @@ M0 ships only `bslib`, `bsicons`, `config`, `golem`, `rlang`, `sass`, `shiny`, `
 - 2026-10-27 — M3: `ggplot2`, `plotly`, `reactable` and `thematic` approved and added to Imports.
 - 2026-10-27 — stabilitest 0.6.6 released (PR #13): two-group removal paths name the removed unit. The app now requires `stabilitest (>= 0.6.6)`.
 - 2026-10-27 — M3: `thematic` removed again. Its auto-theming only works inside `renderPlot()`, and the plots are plotly widgets that already take every colour from `stv_palette()` for the current light/dark mode.
+- 2026-10-27 — M3: the Influence tab plots each leave-one-out p-value against a line at the original p, not Δp. The difference shows on the plot, and the app does no arithmetic on stabilitest's numbers. p-value axes are log scale.
+- 2026-10-27 — M3: selection is one set of data rows shared by the Influence plot (click, or drag to select) and the Removed observations table (checkboxes). Rows the worst-case path did not remove have no table row and stay selected in the plot only. Plot builders in `R/fct_plots.R` return ggplots, so M4 reports can use them as static plots.

@@ -1,5 +1,12 @@
 # stabilitest.viz (development version)
 
+* Results explorer (M3): tabs for the removal path, influence, bootstrap,
+  removed observations, interpretation and code below the score. Plots are
+  interactive and follow the light/dark switch. Selecting observations in the
+  influence plot or the removed-observations table selects them in both.
+* Each removal step links to the data row it removed, for every method.
+* Fixed: data with named rows (such as `mtcars`) lost the link between results
+  and rows.
 * Requires stabilitest 0.6.6, which names the observations removed at each
   step of the two-group removal paths.
 
