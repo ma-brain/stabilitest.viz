@@ -10,3 +10,5 @@
 ^\.lintr$
 ^graphify-out$
 
+^Dockerfile$
+^\.dockerignore$

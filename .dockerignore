@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+.Rproj.user
+*.Rproj
+docs
+dev
+graphify-out
+tests
+CLAUDE.md
+Dockerfile
+.dockerignore

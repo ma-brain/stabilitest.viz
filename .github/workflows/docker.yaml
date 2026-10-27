@@ -1,0 +1,65 @@
+# Builds the Docker image and checks that the app starts and renders reports.
+# The image is not pushed anywhere.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+name: docker.yaml
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: stabilitest-viz:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The app starts and serves the page
+        run: |
+          docker run -d --name app -p 3838:3838 -e R_CONFIG_ACTIVE=public stabilitest-viz:ci
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3838/ > page.html; then break; fi
+            sleep 2
+          done
+          docker logs app
+          grep -q "<title>stabilitest.viz</title>" page.html
+
+      - name: Analyses run and reports render inside the image
+        run: |
+          docker exec app R -q -e '
+            stopifnot(packageVersion("stabilitest") >= "0.6.6")
+            ns <- asNamespace("stabilitest.viz")
+            f <- system.file("extdata", "synthetic", "two_sample_continuous.csv", package = "stabilitest.viz")
+            data <- ns$stv_read_file(f, basename(f))$data
+            spec <- ns$stv_spec_new("location", "t.test", outcome = "outcome", group = "arm",
+              levels = c("Active", "Control"), settings = list(n_boot = 50, seed = 1))
+            plan <- ns$stv_plan(spec)
+            out <- ns$stv_run_plan(plan, data)
+            res <- ns$stv_as_result(out$raw, spec, plan, out$prepared, out$row_map)
+            for (fmt in c("html", "docx", "pdf")) {
+              file <- tempfile(fileext = paste0(".", fmt))
+              ns$stv_render_report(res, data, "CI", file, fmt)
+              stopifnot(file.size(file) > 10000)
+              cat(fmt, file.size(file), "\n")
+            }
+          '
+
+      - name: Stop
+        if: always()
+        run: docker rm -f app || true
