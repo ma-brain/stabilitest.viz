@@ -192,10 +192,28 @@ stv_as_result <- function(raw, spec, plan, prepared, row_map, elapsed = NA_real_
     c("unit", "label", "row", "p_value", "statistic", "estimate", "significant",
       "conclusion_match", "influential_delta", "influential")
   )
-  path_columns <- c("k_removed", "p_value", "statistic", "estimate", "significant", "conclusion_match")
+  path_columns <- c(
+    "k_removed", "p_value", "statistic", "estimate", "significant", "conclusion_match", "label", "row"
+  )
+  # Each removal step names the observation it removed: two-group results by
+  # label (stabilitest >= 0.6.6), models by `removed_rows` in removal order
+  path_rows <- function(path) {
+    path <- as.data.frame(path)
+    if (is_nested) {
+      unit <- observations$unit[match(path$removed_label, observations$label)]
+    } else {
+      removed <- as.integer(raw$removed_rows)
+      k <- path$k_removed
+      unit <- ifelse(k >= 1L & k <= length(removed), removed[pmax(k, 1L)], NA_integer_)
+    }
+    path$label <- observations$label[match(unit, observations$unit)]
+    path$row <- unit_rows(unit)
+    path
+  }
   boot_columns <- c("iteration", "p_value", "statistic", "estimate", "significant", "conclusion_match")
 
-  removed_rows <- if (is_nested) integer() else unit_rows(as.integer(raw$removed_rows))
+  removal <- stv_normalise_table(path_rows(worstcase_raw), path_columns)
+  removed_rows <- as.integer(removal$row[!is.na(removal$row)])
 
   label <- raw$interpretation_label
   label <- if (is.null(label) || length(label) != 1L || is.na(label) || !nzchar(label) ||
@@ -223,8 +241,8 @@ stv_as_result <- function(raw, spec, plan, prepared, row_map, elapsed = NA_real_
     weights = raw$weights %||% numeric(),
     metrics = metrics,
     jackknife = jackknife,
-    removal = stv_normalise_table(worstcase_raw, path_columns),
-    extreme = if (is_nested) stv_normalise_table(raw$extreme$results, path_columns) else NULL,
+    removal = removal,
+    extreme = if (is_nested) stv_normalise_table(path_rows(raw$extreme$results), path_columns) else NULL,
     bootstrap = stv_normalise_table(bootstrap_raw, boot_columns),
     observations = observations,
     removed_rows = removed_rows,

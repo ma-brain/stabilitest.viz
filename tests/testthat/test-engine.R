@@ -236,3 +236,46 @@ test_that("error text drops R's call prefix", {
   expect_identical(stv_error_text(simpleError("Error: boom\n")), "boom")
   expect_identical(stv_error_text(simpleError("boom: it broke")), "boom: it broke")
 })
+
+test_that("every removal step links to the row it removed, for every family", {
+  skip_if_not_installed("survival")
+  for (nm in names(specs())) {
+    data <- syn(data_for[[nm]])
+    spec <- stv_spec_finalize(specs()[[nm]], data)
+    plan <- stv_plan(spec)
+    out <- stv_run_plan(plan, data)
+    res <- stv_as_result(out$raw, spec, plan, out$prepared, out$row_map)
+    steps <- res@removal[res@removal$k_removed > 0, ]
+    expect_true(nrow(steps) > 0L, info = nm)
+    expect_false(anyNA(steps$row), info = nm)
+    expect_false(anyDuplicated(steps$row) > 0L, info = nm)
+    expect_true(all(steps$row %in% seq_len(nrow(data))), info = nm)
+    expect_true(is.na(res@removal$row[res@removal$k_removed == 0]), info = nm)
+    expect_identical(res@removed_rows, steps$row, info = nm)
+    # The removed observation's label is the one its jackknife entry has
+    expect_identical(steps$label, res@jackknife$label[match(steps$row, res@jackknife$row)], info = nm)
+  }
+})
+
+test_that("removing the listed rows reproduces the first removal step", {
+  data <- syn("two_sample_continuous.csv")
+  spec <- specs()$welch
+  plan <- stv_plan(spec)
+  out <- stv_run_plan(plan, data)
+  res <- stv_as_result(out$raw, spec, plan, out$prepared, out$row_map)
+  first <- res@removal[res@removal$k_removed == 1, ]
+  rest <- data[-first$row, ]
+  p <- stats::t.test(rest$outcome[rest$arm == "Active"], rest$outcome[rest$arm == "Control"])$p.value
+  expect_equal(p, first$p_value, tolerance = 1e-10)
+})
+
+test_that("data with named rows still maps results to row numbers", {
+  data <- datasets::mtcars
+  spec <- stv_spec_new("lm", outcome = "mpg", predictors = c("wt", "hp"), term = "wt", settings = fast)
+  plan <- stv_plan(spec)
+  out <- stv_run_plan(plan, data)
+  expect_identical(out$row_map, seq_len(nrow(data)))
+  res <- stv_as_result(out$raw, spec, plan, out$prepared, out$row_map)
+  expect_false(anyNA(res@jackknife$row))
+  expect_identical(res@removed_rows, as.integer(out$raw$removed_rows))
+})
