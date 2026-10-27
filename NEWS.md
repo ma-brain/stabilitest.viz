@@ -1,5 +1,18 @@
 # stabilitest.viz (development version)
 
+* Guided mode (M5): a "What does this mean?" panel restates each result in
+  plain language. Every sentence repeats a number stabilitest returned, and the
+  score is read as fragile or robust only when stabilitest returned a label.
+  Expert mode opens the results on the Code tab.
+* Every measure in the score row has an info button with a one-sentence
+  definition.
+* Learn links the stabilitest repository and its three case-study vignettes;
+  About shows how to cite stabilitest.
+* Accessibility: the Guided/Expert switch has a label for screen readers,
+  outline buttons meet WCAG AA contrast in dark mode, and the first three
+  Compare line colours reach 3:1 against the plot background.
+* Fixed: the public profile could not run, because the default 1000 bootstrap
+  resamples exceeded its limit of 500 and Guided mode hides that setting.
 * Compare (M4): every analysis run in the session is kept, with its data.
   Select analyses to see them side by side and their removal paths on one
   plot. A note appears when they were run on different data.

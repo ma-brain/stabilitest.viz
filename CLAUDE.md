@@ -43,4 +43,5 @@ assets in `inst/app/www/`.
 - M2 Engine: **done** (branch `m2-engine`): spec to plan to run (mirai) to `stv_result` (S7), generated code, Question/Map/Settings/Run steps
 - M3 Results: **done** (branch `m3-results`): explorer tabs (`R/fct_plots.R`, `R/mod_results.R`), linked selection
 - M4 Compare + reports: **done** (branch `m4-compare-reports`): session history and Compare page, Export tab, Quarto report
-- M5 Guided/Learn/polish, M6 Release: not started. See `docs/PLAN.md` section 8.
+- M5 Guided/Learn/polish: **done** (branch `m5-guided-learn`): plain-language panel, metric popovers, Learn links, citation, accessibility pass
+- M6 Release: not started. See `docs/PLAN.md` section 8.
