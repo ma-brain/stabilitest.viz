@@ -32,7 +32,6 @@ Imports:
     shiny (>= 1.9),
     shinyvalidate,
     stabilitest (>= 0.6.6),
-    thematic,
     tibble,
     utils
 Suggests:

@@ -97,7 +97,7 @@ Brand spec: [`docs/brand/BRAND.md`](brand/BRAND.md) ("Clinical calm" palette, li
 
 - `bslib::bs_theme(version = 5)` with a custom palette, Inter + JetBrains Mono, rounded cards, generous whitespace.
 - Single SCSS file in `inst/app/www/` for overrides; design tokens as Sass variables.
-- `thematic` so ggplot output follows the active theme (light/dark).
+- Plots take their light/dark colours from `stv_palette()` directly (`thematic` was dropped in M3, see the decisions log).
 - Colour semantics: neutral by default; red/green reserved for validated labels only.
 
 ---
@@ -138,9 +138,9 @@ Key rules:
 ---
 
 ## 6. Proposed dependencies
-M0 ships only `bslib`, `bsicons`, `config`, `golem`, `rlang`, `sass`, `shiny`, `stabilitest`, `tibble`, `utils`. The rest are added per milestone: `S7` in M2 (approved), `mirai` in M2, `readxl`/`haven`/`shinyvalidate` in M1, `ggplot2`/`plotly`/`reactable`/`thematic` in M3, `quarto` in M4.
+M0 ships only `bslib`, `bsicons`, `config`, `golem`, `rlang`, `sass`, `shiny`, `stabilitest`, `tibble`, `utils`. The rest are added per milestone: `S7` in M2 (approved), `mirai` in M2, `readxl`/`haven`/`shinyvalidate` in M1, `ggplot2`/`plotly`/`reactable` in M3, `quarto` in M4.
 
-`stabilitest`, `golem`, `shiny` (≥ 1.8.1 for ExtendedTask), `bslib`, `bsicons`, `mirai`, `thematic`,
+`stabilitest`, `golem`, `shiny` (≥ 1.8.1 for ExtendedTask), `bslib`, `bsicons`, `mirai`,
 `ggplot2`, `plotly` (in-app interactivity; ggplot builders in `fct_plots.R` → `ggplotly()` / native traces where needed, static ggplot for reports), `reactable`, `shinyvalidate`,
 `readxl`, `haven`, `S7`, `quarto`, `cli`; dev: `testthat`, `shinytest2`, `lintr`, `styler`.
 
@@ -221,3 +221,4 @@ M0 ships only `bslib`, `bsicons`, `config`, `golem`, `rlang`, `sass`, `shiny`, `
 - 2026-10-27 — Released v0.1.0 (M0 to M2). Changes are listed in `NEWS.md`.
 - 2026-10-27 — M3: `ggplot2`, `plotly`, `reactable` and `thematic` approved and added to Imports.
 - 2026-10-27 — stabilitest 0.6.6 released (PR #13): two-group removal paths name the removed unit. The app now requires `stabilitest (>= 0.6.6)`.
+- 2026-10-27 — M3: `thematic` removed again. Its auto-theming only works inside `renderPlot()`, and the plots are plotly widgets that already take every colour from `stv_palette()` for the current light/dark mode.
