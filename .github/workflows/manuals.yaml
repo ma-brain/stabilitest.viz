@@ -24,6 +24,7 @@ name: manuals.yaml
 permissions: read-all
 
 env:
+  QUARTO_VERSION: 1.10.18
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
 jobs:
@@ -44,12 +45,15 @@ jobs:
         with:
           extra-packages: local::., any::knitr, any::rmarkdown, any::yaml
 
-      - uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: 1.10.18
-
-      - name: Install poppler
-        run: sudo apt-get install -y poppler-utils
+      # The runner may have a newer Quarto, which the setup action will not
+      # downgrade; dpkg installs the pinned version over it
+      - name: Install Quarto and poppler
+        run: |
+          curl -fsSL -o quarto.deb "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
+          sudo dpkg -i quarto.deb
+          rm quarto.deb
+          quarto --version
+          sudo apt-get install -y poppler-utils
 
       - name: Render and check
         run: docs/manuals/build.sh
