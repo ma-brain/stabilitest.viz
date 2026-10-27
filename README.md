@@ -7,8 +7,10 @@ The app never re-implements statistics. Every number comes from stabilitest's
 exported functions, and a categorical label (for example Fragile) is shown only
 when stabilitest returns one. Otherwise the app says the result is numeric only.
 
-> Status: **M0 skeleton.** Pick a bundled example and preview it; the rest of the
-> workflow lands milestone by milestone, see [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.1.0.** Load data, choose one of six methods, map columns, run in the
+> background and read the score with its reproducible code. The results
+> explorer, Compare and reports come next; see [NEWS.md](NEWS.md) and
+> [docs/PLAN.md](docs/PLAN.md).
 
 ## Installation
 

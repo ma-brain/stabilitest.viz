@@ -1,6 +1,6 @@
 Package: stabilitest.viz
 Title: Interactive Companion App for the 'stabilitest' Package
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R:
     person("Marius", "Ardelean", email = "marally@gmail.com",
            role = c("aut", "cre"))
