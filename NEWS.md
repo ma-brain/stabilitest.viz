@@ -1,7 +1,8 @@
 # stabilitest.viz 1.0.1
 
-Manuals for each release, a note on the validated Fisher settings in the
-public profile, and a fix to the Influence tab hint.
+Manuals for each release, an accessibility pass with axe-core, a note on the
+validated Fisher settings in the public profile, and a fix to the Influence
+tab hint.
 
 * Manuals: a user's guide, technical documentation and a two-page executive
   summary, attached as PDFs to each release from now on (`docs/manuals/`).
@@ -9,6 +10,14 @@ public profile, and a fix to the Influence tab hint.
   Fisher exact test now shows a note that the validated settings (1000
   resamples) are out of reach there and results are numeric only, instead of
   a button that set more resamples than the profile allows.
+* Accessibility, checked with axe-core 4.10 (WCAG 2.2 AA and best practice) on
+  every page and tab, both themes, both modes and the public profile: a main
+  landmark and one level-one heading; section titles are level-two headings;
+  the mode and theme switches sit outside the tab list; the export choices
+  have labels; scrolling tables and the code block can be reached with the
+  keyboard; the sidebar resize handle reports its width; table page counts
+  meet contrast. One finding remains inside reactable (its live region sits
+  in the table body), which the app does not patch.
 * The Influence tab shows its "click a point" hint until observations are
   selected, instead of an empty table.
 

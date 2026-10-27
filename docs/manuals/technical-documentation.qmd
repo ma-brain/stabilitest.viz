@@ -340,7 +340,12 @@ md_table(data.frame(
 
 **Accessibility.** Controls have accessible names; info buttons carry an `aria-label`;
 meters have a text alternative. Text colours meet WCAG AA (4.5:1) on both backgrounds
-and the first three plot series reach 3:1, which `test-theme.R` checks.
+and the first three plot series reach 3:1, which `test-theme.R` checks. The app was
+audited with axe-core (WCAG 2.2 AA and best-practice rules) on every page and tab, in
+both themes, both modes and the `public` profile. Fixes for markup that bslib generates
+(the main landmark, the navbar tab list, the sidebar resize handle) are in
+`inst/app/www/stv-a11y.js`. One finding remains inside reactable, whose live region
+sits in the table body; the app does not patch reactable's DOM.
 
 # Exports and reports
 
