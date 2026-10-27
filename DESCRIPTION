@@ -24,6 +24,7 @@ Imports:
     haven,
     mirai,
     plotly,
+    quarto,
     reactable,
     readxl,
     rlang,
@@ -32,8 +33,10 @@ Imports:
     shiny (>= 1.9),
     shinyvalidate,
     stabilitest (>= 0.6.6),
+    svglite,
     tibble,
-    utils
+    utils,
+    writexl
 Suggests:
     later,
     promises,
