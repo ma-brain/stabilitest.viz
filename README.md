@@ -7,7 +7,7 @@ The app never re-implements statistics. Every number comes from stabilitest's
 exported functions, and a categorical label (for example Fragile) is shown only
 when stabilitest returns one. Otherwise the app says the result is numeric only.
 
-> Status: **v1.0.0.** Load data, choose one of six methods, map columns, run in
+> Status: **v1.0.1.** Load data, choose one of six methods, map columns, run in
 > the background, read the score and explore it (removal path, influence,
 > bootstrap, removed observations, interpretation, code), compare analyses and
 > export a report, with a plain-language Guided mode. See [NEWS.md](NEWS.md).
