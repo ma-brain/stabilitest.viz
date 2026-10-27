@@ -1,0 +1,468 @@
+---
+title: "Technical documentation"
+subtitle: "Architecture, rules, testing and deployment of stabilitest.viz"
+doctype: "Technical documentation"
+toc: true
+---
+
+```{r}
+source("_common.R")
+repo <- normalizePath(file.path("..", ".."))
+families <- stv$stv_families()
+registry <- stv$stv_registry()
+desc <- read.dcf(file.path(repo, "DESCRIPTION"))
+
+# Every described item must exist in the code and every item in the code must
+# be described, or the render stops: the document cannot drift from the code.
+described <- function(actual, documented, what) {
+  missing <- setdiff(actual, names(documented))
+  extra <- setdiff(names(documented), actual)
+  if (length(missing) || length(extra)) {
+    stop(what, ": undocumented ", toString(missing), "; no longer in the code ", toString(extra))
+  }
+  documented[actual]
+}
+```
+
+# Purpose and scope
+
+stabilitest.viz is an R Shiny application, built as an R package with golem and bslib,
+that puts the stabilitest R package in a browser. stabilitest measures how easily a
+statistical conclusion could be overturned (leave-one-out jackknife, worst-case
+removal, bootstrap same-decision rate and a composite score). The app prepares data,
+calls stabilitest, and presents, compares and exports the results.
+
+This document describes how the app is built, the rules it keeps, how they are tested,
+and how it is deployed and extended. It is written for maintainers, reviewers who
+validate the app, and those who deploy it. The *User's guide* covers use of the app.
+
+# Design rules
+
+Four rules shape the code. Each is enforced by tests.
+
+| Rule | In the code | Tested by |
+|---|---|---|
+| **No statistics in the app.** Every number comes from stabilitest's exported functions. | `R/fct_dispatch.R` is the only file that calls stabilitest. The adapter copies stabilitest's numbers into `stv_result`; summaries format them. | `test-engine.R`, `test-results.R`, `test-compare.R`, `test-export.R` compare displayed values with the raw stabilitest result. |
+| **Fail-closed labels.** A categorical label is shown only when stabilitest returns one; otherwise the result is numeric only. Green and red only for returned labels. | `stv_result@label` is `NA` unless stabilitest returned a label, and the class validator refuses a label without an applicable calibration. `stv_label_tone()` is the only source of label colour. | `test-results.R`, `test-guided.R` (no reading of the score without a label), `test-explorer.R` (plots never use label colours). |
+| **Wording.** The resampling component is the "bootstrap same-decision rate", never "reproducibility". | The adapter renames stabilitest's `bootstrap_reproducibility` metric. | Tests search every results view, report and plain-language text for "reproducib". |
+| **Upstream fixes.** A gap in stabilitest is fixed in stabilitest, released, and required here. | `DESCRIPTION` requires `stabilitest (>= `r sub(".*>= *([0-9.]+).*", "\\1", grep("stabilitest", strsplit(desc[, "Imports"], ",")[[1]], value = TRUE))`)`. | Process, see *Changes to stabilitest*. |
+
+# Architecture
+
+```{=typst}
+#let node(title, body, fill: rgb("#E3EEEC")) = box(
+  width: 100%, inset: 7pt, radius: 3pt, fill: fill, stroke: 0.5pt + rgb("#D9CFBF"),
+  [#text(weight: 600, size: 9pt, title) \ #text(size: 8pt, fill: rgb("#5A6B70"), body)],
+)
+#let arrow = align(center, text(fill: rgb("#1F6F78"), size: 11pt, sym.arrow.b))
+#figure(
+  block(width: 82%, stack(spacing: 4pt,
+    node("Modules (mod_*.R)", "Data, Question, Map, Settings, Run, Results, Compare, Learn, About"),
+    arrow,
+    node("Session store (fct_store.R)", "data, filters, spec, current result, history, mode, theme"),
+    arrow,
+    node("Spec and validation (fct_spec.R)", "families, column kinds, structural checks"),
+    arrow,
+    node("Plan and dispatch (fct_dispatch.R)", "preparation steps and one stabilitest call; run in a mirai worker", fill: rgb("#F7F5F0")),
+    arrow,
+    node("stabilitest", "robustness_analysis(), robustness_tost(), robustness_lm(), robustness_glm(), robustness_surv()", fill: rgb("#FFFFFF")),
+    arrow,
+    node("Adapter (fct_adapter.R)", "S7 class stv_result: numbers copied, never computed"),
+    arrow,
+    node("Views and exports", "fct_summary.R, fct_plots.R, fct_export.R, fct_codegen.R"),
+  )),
+  caption: [The path of an analysis through the app.],
+)
+```
+
+`fct_*` files hold pure functions, testable without Shiny. `mod_*` files are Shiny
+modules; they read and write the session store and call `fct_*` functions.
+
+```{r}
+files <- sub("\\.R$", "", list.files(file.path(repo, "R"), pattern = "\\.R$"))
+roles <- described(files, c(
+  `app_config` = "Access to `inst/` files and the active profile's configuration.",
+  `app_server` = "Top-level server: the session store, the mode and theme switches, the page modules.",
+  `app_ui` = "Top-level UI: the navbar with Analyse, Compare, Learn and About.",
+  `fct_adam` = "ADaM structure detection, default filters, the one-row-per-subject check, suggested mapping.",
+  `fct_adapter` = "The S7 class `stv_result` and `stv_as_result()`, which copies a stabilitest result into it.",
+  `fct_codegen` = "Generation of the R code that reproduces a result outside the app.",
+  `fct_dispatch` = "Plans and runs analyses; the only file that calls stabilitest. Background workers.",
+  `fct_examples` = "Bundled examples, the calibration registry, package versions.",
+  `fct_export` = "Downloads: tables, plots, and the Quarto report.",
+  `fct_plots` = "ggplot2 builders shared by the app (through plotly) and the report.",
+  `fct_read` = "Reading CSV, TSV, Excel and SAS files.",
+  `fct_spec` = "Analysis families and tests, default settings, column kinds, spec validation.",
+  `fct_store` = "The session store and its updates, including the results history.",
+  `fct_summary` = "Text and tables summarising a result: Compare, report, Guided panel, glossary.",
+  `fct_theme` = "Brand palette and the bslib theme.",
+  `mod_about` = "About page: versions, calibration registry, citation.",
+  `mod_analyse` = "The Analyse page: the step sidebar and the results area.",
+  `mod_compare` = "The Compare page.",
+  `mod_data` = "Step 1: example or upload, preview, ADaM filters.",
+  `mod_learn` = "Learn page.",
+  `mod_map` = "Step 3: column roles.",
+  `mod_question` = "Step 2: family and test.",
+  `mod_results` = "The result card, Guided panel and the explorer tabs, with linked selection and downloads.",
+  `mod_run` = "Step 5: validation messages, running, cancelling, storing the result.",
+  `mod_settings` = "Step 4: settings, the validated Fisher settings.",
+  `run_app` = "`run_app()`, the exported entry point, and the start-up hook.",
+  `stabilitest.viz-package` = "Package documentation and imports.",
+  `utils_ui` = "Small UI helpers: empty states, step titles, badges, HTML tables.",
+  `zzz` = "Package load and unload hooks."
+), "R files")
+md_table(data.frame(File = paste0("`R/", names(roles), ".R`"), Role = unname(roles)))
+```
+
+# An analysis, step by step
+
+1. **Data.** `fct_read.R` reads a file into a data frame; SAS labels are kept.
+   `stv_store_set_data()` detects ADaM structure and applies default filters.
+   `stv_store_set_filters()` produces the filtered data used by every later step and
+   runs the one-row-per-subject check.
+2. **Spec.** The Question, Map and Settings modules build a *spec*: a plain list with
+   the family, test, column roles and settings. `stv_column_kinds()` decides which
+   columns may fill each role.
+3. **Validation.** `stv_validate_spec()` applies structural rules before anything
+   runs (see *Validation rules*). Minimum sample sizes are left to stabilitest.
+4. **Plan.** `stv_plan()` turns the spec into preparation expressions (subset to
+   complete cases of the columns used, recode, build vectors) and one call to a
+   stabilitest function.
+5. **Run.** `stv_run_async()` applies the preparation and evaluates the call in a
+   mirai background worker, through a Shiny `ExtendedTask`. The run can be cancelled.
+   Errors are passed on with stabilitest's own message.
+6. **Adapt.** `stv_as_result()` copies the stabilitest result into an `stv_result`,
+   links each jackknife unit and removal step to its row in the filtered data, and
+   stores the generated code.
+7. **Show and keep.** The Results module displays the result; the store appends it
+   to the session history for the Compare page.
+
+## ADaM detection and default filters
+
+`stv_detect_adam()` recognises a structure from column names alone, ignoring case:
+
+| Structure | Recognised when | Default filters | Suggested roles |
+|---|---|---|---|
+| ADTTE | `AVAL`, `CNSR` and `PARAMCD` are present | First `PARAMCD`; `ANL01FL = "Y"` if present | Time `AVAL`, event `1 - CNSR`, group |
+| BDS | `AVAL` and `PARAMCD` are present (no `CNSR`) | First `PARAMCD`; last `AVISIT` in `AVISITN` order; `ANL01FL = "Y"` if present | Outcome `CHG` (else `AVAL`), covariate `BASE`, group |
+| ADSL | `USUBJID` and a treatment column, without `PARAMCD` or `AVAL` | None | Group, subject |
+| None | Anything else | None | Guessed from column types and names |
+
+The treatment column is the first of `TRT01P`, `TRTP`, `TRT01A`, `TRTA`, `ARM`, `ACTARM`.
+Flag columns are those named `...FL` whose values are only `Y`, `N` or missing; each
+can be applied as a filter. Filter values that do not occur in the data are ignored, so
+a stale choice never empties the data. Every default can be changed in the Data step,
+and the filters are written into the generated code.
+
+The families and the stabilitest function each one calls:
+
+```{r}
+#| tbl-colwidths: [30, 30, 40]
+tests <- vapply(families$id, \(f) {
+  t <- stv$stv_tests(f)
+  if (length(t)) paste0("`", t, "`", collapse = ", ") else "(model)"
+}, character(1))
+md_table(data.frame(
+  Family = families$label, `stabilitest function` = paste0("`", families$stabilitest, "()`"),
+  `Tests or endpoints` = tests, check.names = FALSE
+))
+```
+
+## Validation rules
+
+Before a run, `stv_validate_spec()` refuses a spec that does not fit the data. These are
+structural checks only.
+
+- No identifier column in any role, and no column in two roles.
+- Measurement outcomes have more than two distinct values; 0/1 outcomes are pointed to
+  proportions, the risk-difference or odds-ratio endpoints, or a binomial model.
+- Responses are 0/1 or a few categories; Poisson counts are non-negative whole
+  numbers; offsets and Cox times are above 0; Cox events include at least one event.
+- Predictors vary; a risk-difference margin is below 1.
+- The number of bootstrap resamples is within the profile's limit.
+- The data have one row per subject, except paired data in long layout.
+
+`tests/testthat/test-scenarios.R` holds a table of wrong scenarios for every method,
+each with the message it must produce.
+
+## A worked example
+
+The bundled pain trial, Welch t-test, default settings. The spec built by the Question,
+Map and Settings steps:
+
+```{r}
+spec <- stv$stv_spec_new("location", "t.test", outcome = "change", group = "arm",
+  levels = c("Placebo", "Treatment"))
+spec$source <- list(id = "pain_trial")
+knitr::asis_output(paste0("```r\n", paste(deparse(spec[c("family", "test", "outcome", "group", "levels")],
+  width.cutoff = 70), collapse = "\n"), "\n```\n"))
+```
+
+The code generated from it, which the Code tab shows and the R script download
+contains. Run in R, it gives the same result as the app:
+
+```{r}
+knitr::asis_output(paste0("```r\n", stv$stv_codegen(spec), "\n```\n"))
+```
+
+# Settings
+
+The defaults, and the settings of the validated Fisher exact profile, the only one under
+which stabilitest returns a label. Both come from `fct_spec.R`.
+
+```{r}
+#| tbl-colwidths: [30, 35, 35]
+fmt <- function(s) c(
+  format(s$alpha), format(s$n_boot), paste0(round(100 * s$max_removal_pct), "%"),
+  paste(paste0(names(s$weights), " ", s$weights), collapse = ", "),
+  format(s$influential_threshold), format(s$seed), format(s$interpret)
+)
+md_table(data.frame(
+  Setting = c("`alpha`", "`n_boot`", "`max_removal_pct`", "`weights`", "`influential_threshold`", "`seed`",
+    "`interpret`"),
+  Default = fmt(stv$stv_default_settings()),
+  `Validated Fisher profile` = fmt(stv$stv_fisher_profile_settings()),
+  check.names = FALSE
+))
+```
+
+`stv_profile_status()` reports whether a Fisher spec matches the profile, as a
+statement about the settings only; stabilitest decides from the data whether a label
+applies. The number of resamples is capped by the profile (`max_n_boot`), and
+`mod_settings_server()` lowers the default to `min(1000, max_n_boot)`. In the `public`
+profile (cap 500) the validated Fisher settings, which need 1000 resamples, are
+therefore not reachable.
+
+# The result class
+
+`stv_result` is an S7 class. Its properties are filled by `stv_as_result()` from the
+stabilitest result; none is computed by the app, apart from the row links and the
+generated code.
+
+```{r}
+#| tbl-colwidths: [22, 24, 54]
+props <- stv$stv_result@properties
+types <- vapply(props, \(x) S7:::class_desc(x$class), character(1))
+meaning <- described(names(props), c(
+  family = "Family id, for example `location`.",
+  method = "stabilitest's method id.",
+  method_label = "Family and test as shown in the app.",
+  spec = "The spec that produced the result.",
+  n = "Number of observations analysed.",
+  estimate = "Effect estimate returned by stabilitest.",
+  ci = "Confidence interval returned by stabilitest, when available.",
+  p_value = "Original p-value.",
+  alpha = "Significance level.",
+  significant = "Original decision.",
+  score = "Composite score (`overall_robustness`).",
+  weights = "Weights of the three components, as returned.",
+  metrics = "stabilitest's metrics table, `bootstrap_reproducibility` renamed to `bootstrap_same_decision_rate`.",
+  jackknife = "Leave-one-out results with each unit's label and data row.",
+  removal = "Worst-case removal path, with the label and data row removed at each step.",
+  extreme = "Extreme-value removal path (two-group tests), or `NULL`.",
+  bootstrap = "Bootstrap results.",
+  observations = "Map from stabilitest units to data rows.",
+  removed_rows = "Data rows removed on the worst-case path, in order.",
+  label = "Categorical label returned by stabilitest, or `NA`.",
+  calibration = "Calibration record returned by stabilitest.",
+  interpretation = "Interpretation text (two-group tests with `interpret = TRUE`), or `NULL`.",
+  code = "R code that reproduces the result.",
+  elapsed = "Run time in seconds.",
+  created = "Time of the run.",
+  raw = "The object stabilitest returned, unchanged."
+), "stv_result properties")
+md_table(data.frame(Property = paste0("`", names(props), "`"), Type = paste0("`", types, "`"), Content = unname(meaning)))
+```
+
+The validator requires `label` to have length 1 and refuses a label without an
+applicable calibration.
+
+# Calibration and labels
+
+stabilitest keeps a calibration registry. A label is returned only for an applicable,
+validated entry. The app reads the label from the result and never derives one from a
+score. The registry shipped with the installed stabilitest:
+
+```{r}
+reg <- unique(registry[, c("calibration_unit", "family", "status", "cutoff_fragile")])
+reg$cutoff_fragile <- ifelse(is.na(reg$cutoff_fragile), "none", paste("fragile at <=", reg$cutoff_fragile))
+names(reg) <- c("Method", "Family", "Status", "Cutoff")
+md_table(reg)
+```
+
+Without a label, the banner, Compare, the report and the Guided panel all use the same
+neutral text from `stv_calibration_message()`.
+
+# Generated code
+
+`stv_codegen()` writes R code from the spec: reading the data (bundled example or file,
+with the sheet), the filters, the preparation steps and the stabilitest call with every
+setting and the seed, under R's default random number generator. Tests run the
+generated code and compare its result with the app's.
+
+# Background execution
+
+`run_app()` starts `mirai` daemons in its start-up hook, with the profile's number of
+workers, under a compute profile named `stabilitest.viz`, and stops them when the app
+stops. Each run is a Shiny `ExtendedTask`, so a session stays responsive and other
+sessions are not blocked. A run can be cancelled with `mirai::stop_mirai()`. The
+profile caps the number of bootstrap resamples, and the default is lowered to that cap.
+
+# Session store and history
+
+One `shiny::reactiveValues()` object per session holds the loaded and filtered data,
+ADaM information, filters, checks, the suggested mapping, the spec, the current result,
+the mode, the theme and the history. Replacing the data clears the spec and result but
+keeps the history. Each history entry records the result with its data label, data id
+and row count, so Compare can tell when analyses used different data. Nothing is
+written to disk; the store ends with the session.
+
+# User interface
+
+The UI uses bslib (Bootstrap 5.3) with one SCSS file (`inst/app/scss/stv.scss`) and the
+brand palette from `stv_palette()`, in light and dark variants. Plots are ggplot2 built
+in `fct_plots.R` and shown with plotly; tables use reactable. Guided and Expert modes
+differ in settings shown, data filters, the plain-language panel and the opening tab.
+
+```{r}
+pal <- lapply(c(light = "light", dark = "dark"), stv$stv_palette)
+tokens <- c("bg", "surface", "fg", "muted", "primary", "accent", "not_fragile", "fragile")
+md_table(data.frame(
+  Token = paste0("`", tokens, "`"),
+  Light = vapply(tokens, \(t) pal$light[[t]], ""),
+  Dark = vapply(tokens, \(t) pal$dark[[t]], ""),
+  Use = c("Page background", "Cards and plots", "Text", "Secondary text", "Brand, links, data",
+    "Marked points, flip step", "Returned label *Not fragile* only", "Returned label *Fragile* only")
+))
+```
+
+**Accessibility.** Controls have accessible names; info buttons carry an `aria-label`;
+meters have a text alternative. Text colours meet WCAG AA (4.5:1) on both backgrounds
+and the first three plot series reach 3:1, which `test-theme.R` checks.
+
+# Exports and reports
+
+`fct_export.R` writes the downloads: tables (XLSX with one sheet per table, or CSV),
+plots (PNG or SVG through ggsave and svglite), the R script and the raw stabilitest
+result (RDS). The report template, `inst/report/report.qmd`, has no code chunks: the app
+fills it with Markdown text and PNG plots and Quarto renders it to HTML, Word or PDF
+(through Typst). Rendering therefore needs only the Quarto command-line tool, not knitr
+or an installed copy of the package. The report uses the same summary and calibration
+text as the app.
+
+# Configuration
+
+Profiles are defined in `inst/golem-config.yml` and chosen with
+`run_app(profile = )` or the `R_CONFIG_ACTIVE` environment variable.
+
+```{r}
+md_table(profiles_table())
+```
+
+All keys, as read from the installed `golem-config.yml` (other profiles inherit from
+`default`):
+
+```{r}
+cfg <- yaml::read_yaml(system.file("golem-config.yml", package = "stabilitest.viz"))
+keys <- names(cfg$default)
+md_table(data.frame(
+  Key = paste0("`", keys, "`"),
+  default = vapply(keys, \(k) format(cfg$default[[k]]), ""),
+  production = vapply(keys, \(k) format(cfg$production[[k]] %||% cfg$default[[k]]), ""),
+  public = vapply(keys, \(k) format(cfg$public[[k]] %||% cfg$default[[k]]), "")
+))
+```
+
+# Testing and continuous integration
+
+Tests use testthat (edition 3). Module logic is tested with `shiny::testServer()`;
+analyses run synchronously in tests through a replacement runner.
+
+```{r}
+test_files <- list.files(file.path(repo, "tests", "testthat"), pattern = "^test-.*\\.R$", full.names = TRUE)
+counts <- vapply(test_files, \(f) sum(grepl("^test_that\\(", readLines(f, warn = FALSE))), integer(1))
+md_table(data.frame(File = paste0("`", basename(test_files), "`"), Tests = unname(counts)))
+```
+
+Two GitHub Actions workflows run on every pull request and on `main`:
+
+- `R-CMD-check.yaml`: `R CMD check` on Linux, macOS and Windows, which must report 0
+  errors, 0 warnings and 0 notes.
+- `docker.yaml`: builds the Docker image, starts it, checks that the page is served,
+  and runs an analysis and renders the three report formats inside the container.
+
+# Deployment
+
+The app installs as an R package and runs with `run_app()`. The `Dockerfile` builds on
+`rocker/r-ver` with Quarto for reports, stabilitest pinned to a release tag, and the app
+installed with pak. It runs as a non-root user on port 3838 with a health check, using
+the `production` profile unless `R_CONFIG_ACTIVE` says otherwise. Each container runs
+one R process plus the profile's background workers; scale out with several containers
+behind a load balancer with sticky sessions. Details are in `docs/deployment.md`.
+
+# Dependencies
+
+```{r}
+imports <- trimws(strsplit(desc[, "Imports"], ",")[[1]])
+pkgs <- sub(" .*", "", imports)
+required <- ifelse(grepl("\\(", imports), sub(".*\\((.*)\\).*", "\\1", imports), "")
+installed <- vapply(pkgs, \(p) tryCatch(as.character(utils::packageVersion(p)), error = \(e) "not installed"), "")
+md_table(data.frame(Package = pkgs, Required = required, `Version used for this document` = installed,
+  check.names = FALSE))
+```
+
+Build-only tools (not in `DESCRIPTION`): knitr, rmarkdown and chromote for these
+manuals, and the Quarto command-line tool for reports and manuals.
+
+# Extending the app
+
+To add a method that stabilitest supports:
+
+1. Add the family or test to `stv_families()` and `stv_tests()` in `fct_spec.R`, with
+   the stabilitest function it calls.
+2. Teach `stv_column_kinds()` and the Map module which columns fit each role, and add
+   the structural rules to `stv_validate_spec()`.
+3. Add the arguments to `stv_plan()` and the code to `stv_codegen()`.
+4. Map the result in `stv_as_result()`, including how units link to data rows.
+5. Add a synthetic example, engine tests that compare with a direct stabilitest call,
+   wrong scenarios in `test-scenarios.R`, and a test that the generated code reproduces
+   the result.
+
+# Changes to stabilitest
+
+When the app needs something stabilitest does not provide, the change is made in
+stabilitest, never worked around in the app: a branch from stabilitest's `main`, a test
+showing that no existing numbers change, a version bump, a pull request (squash merge),
+a tag and a GitHub release with the built package and manual. The app then raises its
+required version and records the change in `docs/upstream-requests.md`. stabilitest
+0.6.6, which names the observation removed at each step, was made this way for the
+removal-path views.
+
+# Security and privacy
+
+- Uploaded data stay in the R session's memory and are discarded when the session ends;
+  temporary files for reports are deleted after rendering.
+- The profile sets the maximum upload size; the `public` profile turns uploads off.
+- The profile caps bootstrap resamples, which bounds the work a request can cause.
+- The app has no user accounts and stores no data between sessions. Authentication, if
+  needed, belongs to the hosting layer (reverse proxy or platform).
+- The container runs as a non-root user.
+
+# Version history
+
+```{r}
+#| tbl-colwidths: [12, 88]
+news <- readLines(file.path(repo, "NEWS.md"))
+versions <- sub("^# stabilitest.viz ", "", grep("^# stabilitest.viz [0-9]", news, value = TRUE))
+intro <- vapply(versions, \(v) {
+  i <- which(news == paste("# stabilitest.viz", v))
+  j <- i + 2
+  para <- character()
+  while (j <= length(news) && nzchar(news[j])) {
+    para <- c(para, news[j])
+    j <- j + 1
+  }
+  paste(para, collapse = " ")
+}, "")
+md_table(data.frame(Version = versions, Summary = unname(intro)))
+```
