@@ -34,7 +34,7 @@ separate package. Source of truth: `docs/PLAN.md`. Brand: `docs/brand/BRAND.md`.
 
 ## Layout
 `R/app_*.R` entry; `R/fct_theme.R` (`stv_palette()`, `stv_theme()`); `R/fct_store.R`
-(session store); `R/fct_examples.R`; `R/fct_read.R` (file reading); `R/fct_adam.R` (ADaM detection, filters, mapping suggestions); `R/fct_spec.R` (families, validation); `R/fct_dispatch.R` (the only place that calls stabilitest); `R/fct_adapter.R` (`stv_result`); `R/fct_codegen.R`; `R/fct_plots.R` (ggplot builders, `stv_plotly()`); `R/mod_*.R` pages; SCSS in `inst/app/scss/stv.scss`;
+(session store); `R/fct_examples.R`; `R/fct_read.R` (file reading); `R/fct_adam.R` (ADaM detection, filters, mapping suggestions); `R/fct_spec.R` (families, validation); `R/fct_dispatch.R` (the only place that calls stabilitest); `R/fct_adapter.R` (`stv_result`); `R/fct_codegen.R`; `R/fct_plots.R` (ggplot builders, `stv_plotly()`); `R/fct_summary.R` (result summary for Compare and report); `R/fct_export.R` (downloads, report); `inst/report/report.qmd`; `R/mod_*.R` pages; SCSS in `inst/app/scss/stv.scss`;
 assets in `inst/app/www/`.
 
 ## Milestones
@@ -42,4 +42,5 @@ assets in `inst/app/www/`.
 - M1 Data layer: **done** (branch `m1-data-layer`): CSV/TSV/XLSX/XPT/SAS7BDAT upload, ADaM detection, filters, one-row-per-subject check, suggested mapping
 - M2 Engine: **done** (branch `m2-engine`): spec to plan to run (mirai) to `stv_result` (S7), generated code, Question/Map/Settings/Run steps
 - M3 Results: **done** (branch `m3-results`): explorer tabs (`R/fct_plots.R`, `R/mod_results.R`), linked selection
-- M4 Compare + reports, M5 Guided/Learn/polish, M6 Release: not started. See `docs/PLAN.md` section 8.
+- M4 Compare + reports: **done** (branch `m4-compare-reports`): session history and Compare page, Export tab, Quarto report
+- M5 Guided/Learn/polish, M6 Release: not started. See `docs/PLAN.md` section 8.

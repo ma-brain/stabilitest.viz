@@ -1,5 +1,11 @@
 # stabilitest.viz (development version)
 
+* Compare (M4): every analysis run in the session is kept, with its data.
+  Select analyses to see them side by side and their removal paths on one
+  plot. A note appears when they were run on different data.
+* Export tab (M4): a report as HTML, Word or PDF (rendered with Quarto; PDF
+  through Typst, no LaTeX), plots as PNG or SVG, tables as XLSX or CSV, the R
+  script and the stabilitest result as RDS.
 * Results explorer (M3): tabs for the removal path, influence, bootstrap,
   removed observations, interpretation and code below the score. Plots are
   interactive and follow the light/dark switch. Selecting observations in the
